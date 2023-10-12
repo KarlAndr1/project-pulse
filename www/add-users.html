@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+
+<head>
+	<meta charset="utf-8">
+	<link href="/styles/generic.css" rel="stylesheet"/>
+	<script src="/scripts/generic.js"></script>
+</head>
+
+<header>
+	<nav>
+		<a href="/">Home</a> |
+		<a href="/view-users.beryl">Users</a>
+	</nav>
+</header>
+
+<h1>Add new users</h1>
+
+<div>
+	
+	<form action="add-users-post.beryl" method="post" enctype="multipart/form-data">
+		<label for="new_users_file_sel">Upload CSV</label>
+		<sub>
+			CSV Format:
+			ID,
+			Name,
+			Email,
+			Phone Number
+		</sub>
+		<input type="file" id="new_users_file_sel" name="new_users_csv" accept="text/csv"/>
+		
+		<input type="submit" value="Upload"/>
+	</form>
+</div>
+
+</html>

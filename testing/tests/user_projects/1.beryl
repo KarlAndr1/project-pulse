@@ -1,0 +1,91 @@
+let sql = require "~/sql"
+
+let projects = require (getenv "www") cat: "/projects.beryl"
+
+let start-date = parse-number (getenv "START_DATE")
+let end-date = parse-number (getenv "END_DATE")
+
+invoke do
+	let test-time = start-date - 1000
+	let global time = function do # Shadow the 'time' function so it returns the test-time instead of the actual time
+		test-time
+	end
+	
+	let user-id = (split (getenv "USER_LOGIN") ":") 0
+	
+	let db = sql :open (cat (getenv "LIGHTTPD_DATA_PATH") "/database")
+	
+	let p1 = projects :get-user-projects db user-id
+	assert (empty? p1)
+	
+	test-time = start-date
+	let p2 = projects :get-user-projects db user-id
+	assert (sizeof p2) == 1
+	
+	test-time = end-date
+	let p3 = projects :get-user-projects db user-id
+	assert (sizeof p3) == 1
+	
+	test-time = end-date + 1
+	let p4 = projects :get-user-projects db user-id
+	assert (empty? p4)
+	
+	test-time = end-date + 1000
+	let p5 = projects :get-user-projects db user-id
+	assert (empty? p5)
+	
+	# ------------------------
+	
+	test-time = start-date
+	let p = (projects :get-user-projects db user-id) 0
+	assert p
+	
+	let r1 = projects :get-project-report-info db p
+	assert (r1 :period) == 1
+	assert (r1 :period-ends-at) == (start-date + 1000)
+	assert (r1 :time-left) == 1000
+	
+	test-time = start-date + 500
+	let r2 = projects :get-project-report-info db p
+	assert (r2 :period) == 1
+	assert (r2 :period-ends-at) == (start-date + 1000)
+	assert (r2 :time-left) == 500
+	
+	test-time = start-date + 1001
+	let r3 = projects :get-project-report-info db p
+	assert (r3 :period) == 2
+	assert (r3 :period-ends-at) == (start-date + 3000)
+	assert (r3 :time-left) == 1999
+	
+	test-time = start-date + 2000
+	let r4 = projects :get-project-report-info db p
+	assert (r4 :period) == 2
+	assert (r4 :period-ends-at) == (start-date + 3000)
+	assert (r4 :time-left) == 1000
+	
+	test-time = start-date + 3001
+	let r5 = projects :get-project-report-info db p
+	assert (r5 :period) == 3
+	assert (r5 :period-ends-at) == (start-date + 7000)
+	assert (r5 :time-left) == (7000 - 3001)
+	
+	test-time = start-date + 6000
+	let r6 = projects :get-project-report-info db p
+	assert (r6 :period) == 3
+	assert (r6 :period-ends-at) == (start-date + 7000)
+	assert (r6 :time-left) == 1000
+	
+	test-time = start-date + 7001
+	let r7 = projects :get-project-report-info db p
+	assert (r7 :period) == 4
+	assert (r7 :period-ends-at) == (start-date + 9000)
+	assert (r7 :time-left) == 1999
+	
+	test-time = start-date + 9001 # After the last report date
+	let r8 = projects :get-project-report-info db p
+	assert (r8 :period) == null
+	
+	test-time = end-date + 100 # After the project has ended
+	let r9 = projects :get-project-report-info db p
+	assert (r9 :period) == null
+end

@@ -1,0 +1,34 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+
+let admin-auth = require "admin-auth"
+
+let req-type = assert (getenv "REQUEST_METHOD")
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+let handle-post = function db params do
+	if :mark-read in? params do
+		db "UPDATE reports SET marked_read = 1 WHERE id = ?1" (params :report-id)
+	end elseif :post-comment in? params do
+		db "
+			INSERT INTO report_comments 
+				(report_id, time, content) 
+			VALUES
+				(?1, ?2, ?3)
+		" (params :report-id) (invoke time) (params :comment-content)
+	end
+end
+
+if req-type == "POST" do
+	let db = sql :open (cat server-data "/database")
+	let params = cgi :parse-url-parameters (input read-all)
+	if (admin-auth :auth-admin db (cookies :admin-login)) do
+		handle-post db params
+		cgi :headers do
+			redirect (cat "view-report.beryl?report-id=" (params :report-id) "#comment-field")
+		end
+	end
+	sql :close db
+end

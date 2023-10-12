@@ -1,0 +1,10 @@
+export REQUEST_METHOD=POST
+
+cookie="$(
+	printf 'username=admin&password=123' |
+	beryl $www/admin-login-auth.beryl | 
+	beryl get_cookie.beryl
+)"
+
+export HTTP_COOKIE="admin-login=$cookie"
+

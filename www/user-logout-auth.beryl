@@ -1,0 +1,22 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+
+let user-auth = require "user-auth"
+
+let req-type = assert (getenv "REQUEST_METHOD")
+
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+cgi :headers do
+	redirect "/"
+	set-cookie "user-login" "" "Max-Age=-1" "Secure" "HttpOnly"
+end
+
+if req-type == "POST" do
+	let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+	
+	let db = sql :open (cat server-data "/database")
+	user-auth :logout-user db (cookies :user-login)
+	sql :close db	
+end
+

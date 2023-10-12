@@ -1,0 +1,43 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+
+let user-auth = require "user-auth"
+
+let req-type = assert (getenv "REQUEST_METHOD")
+
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+let redirect-to = "user-login.html?error=login-error:Invalid+ID+or+password,s:h"
+let auth-token-cookie = null
+
+
+let handle-post = function do
+	let in = cgi :parse-url-parameters (input read-all)
+	let member_id = assert (in :member_id)
+	let password = assert (in :password)
+	
+	let db = sql :open (cat server-data "/database")
+	
+	let token = user-auth :login-user sql db member_id password
+	if token =/= null do
+		redirect-to = "/"
+		auth-token-cookie = token
+	end
+	sql :close db
+end
+
+
+if req-type == "POST" do
+	invoke handle-post
+	cgi :headers do
+		redirect redirect-to
+		if auth-token-cookie =/= null do
+			set-cookie "user-login" auth-token-cookie "Secure" "HttpOnly"
+		end
+	end
+end else do
+	print-exactly "Status: 405" carriage-return newline #"
+	cgi :headers do
+		content-type "text/plain"
+	end
+end

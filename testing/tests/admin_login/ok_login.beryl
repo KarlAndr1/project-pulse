@@ -1,0 +1,15 @@
+let lnbrk = cat carriage-return newline
+
+let in = input read-all
+
+let lines = split in lnbrk
+
+let cookie-line = first lines with l do
+	l beginswith? "Set-Cookie:"
+end
+cookie-line = lines cookie-line
+
+cookie-line = regex "Set-Cookie: admin-login=\([:[:alnum:]]*\).*" cookie-line #"
+let cookie = cookie-line 1
+
+assert cookie =/= null

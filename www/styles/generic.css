@@ -1,0 +1,356 @@
+html {
+	background-image: linear-gradient(orange, purple);
+	height: auto;
+	min-height: 100%;
+	/* font-size: 1.2em; */
+	font-size: 1.4vw; 
+}
+
+h1 {
+	text-align: center;
+}
+
+body {
+	margin-top: 16px;
+	margin-bottom: 16px;
+	width: 90%;
+	margin-left: auto;
+	margin-right: auto;
+	max-width: 100vmin;
+	box-shadow: 0.5em 0.5em 1em black;
+	border-radius: 1em;
+	padding: 16px;
+	background-color: rgb(10, 25, 25);
+	color: linen;
+	height: fit-content;
+	overflow: auto;
+}
+
+section {
+	display: grid;
+	grid-auto-flow: column;
+	grid-auto-columns: 1fr;
+}
+
+
+div {
+	border-style: none none none solid;
+	border-color: rgba(255, 255, 255, 0.1);
+	border-width: 0.5vmax;
+	background-color: rgba(255, 255, 255, 0.08);
+	border-radius: 1em;
+	padding: 0.5em;
+	margin: 1vmax;
+	/* overflow: auto; */
+}
+
+form {
+	padding: 4px 16px 4px 16px;
+	border-style: none dotted none dotted;
+	border-width: 0.2em;
+	border-color: grey;
+	display: inline-block;
+	margin: 16px;
+}
+
+list {
+	font-size: 0.8em;
+}
+
+.fade-in {
+	border-radius: 0.5em;
+	animation: fade_in_item 0.5s;
+}
+
+@keyframes fade_in_item {
+	from {
+		background-color: white;
+	}
+	to {
+		background-color: none;
+	}
+}
+
+input, textarea, label, select {
+	display: grid;
+	font-size: 1em;
+	margin-right: auto;
+	margin-top: 4px;
+	margin-bottom: 4px;
+	border-radius: 0.5em;
+	border-width: 0;
+	padding: 4px;
+	outline: none;
+}
+
+label {
+	display: inline-block;
+}
+
+textarea {
+	width: 100%;
+	background-color: rgba(255, 255, 255, 0.8);
+	border-width: 2px;
+	padding: 8px;
+	border-color: rgba(255, 255, 255, 0.8);
+	border-style: solid;
+}
+
+input[type="button"] {
+	display: inline-block;
+	background-color: rgba(0, 0, 0, 0.2);
+	color: white;
+	border-color: purple;
+	margin-top: 16px;
+	margin-bottom: 8px;
+	font-size: 1em;
+	border-width: 0.2em;
+}
+
+input[type="submit"] {
+	background-color: rgba(0, 0, 0, 0.2);
+	color: white;
+	border-color: orange;
+	margin-top: 16px;
+	margin-bottom: 8px;
+	font-size: 1em;
+	border-width: 0.2em;
+	padding: 8px;
+	
+	border-image: linear-gradient(orange, purple) 20;
+}
+
+input[type="file"] {
+	border-radius: 2vmax;
+	border-style: dotted;
+	border-width: 4px;
+	padding: 16px 0px 16px 8px;
+	margin-top: 16px;
+	margin-bottom: 16px;
+	text-align: left;
+	border-color: grey;
+	background-color: rgba(0, 0, 0, 0.2);
+}
+
+input[type="button"], input[type="submit"], input[type="file"] {
+	transition: all 0.5s;
+}
+
+input[type="submit"]:hover {
+	/* background-color: color-mix(in srgb, purple, white); */
+	background-color: rgba(255, 255, 255, 0.5);
+}
+input[type="button"]:hover {
+	/* background-color: color-mix(in srgb, orange, white); */
+	background-color: rgba(255, 255, 255, 0.5);
+}
+input[type="file"]:hover {
+	background-color: rgba(255, 255, 255, 0.5);
+}
+
+p {
+	position: relative;
+	border-style: none none none solid;
+	padding: 8px;
+	border-color: violet;
+	border-width: 0.2em;
+}
+
+time {
+	white-space: nowrap;
+	color: violet;
+}
+
+p.blue {
+	border-color: blue;
+}
+
+p.highlight {
+	border-color: orange;
+}
+
+p.white {
+	border-color: white;
+}
+
+p.green {
+	border-color: green;
+}
+
+p.red {
+	border-color: crimson;
+}
+
+a, p.clickable {
+	background-color: rgba(0, 0, 0, 0.5);
+	transition: all 0.5s;
+	border-radius: 0 0.5em 0.5em 0;
+}
+
+a:hover, p.clickable:hover {
+	background-color: rgba(255, 255, 255, 0.5);
+}
+
+/* https://blog.logrocket.com/creating-beautiful-tooltips-with-only-css/ */
+.tooltip {
+	position: relative;
+}
+.tooltip:before {
+	content: attr(data-text);
+	
+	position: absolute;
+	bottom: 100%;
+	left: 50%;
+	visibility: hidden;
+	z-index: 999;
+	transform: translateX(-50%);
+	
+	color: white;
+	white-space: nowrap;
+	opacity: 0%;
+	text-align: center;
+	margin: 0.5em;
+	/* background-image: linear-gradient(rgba(255, 165, 0, 0.1), rgba(128, 0, 128, 0.1)); */
+	padding: 0.5em;
+	transition: all 0.5s;
+	border-width: 0.2em;
+	border-style: solid;
+	background-color: rgba(128, 0, 128, 0.1);
+	
+	/* border-color: crimson; */
+	border-image: linear-gradient(orange, purple) 20;
+	
+}
+.tooltip:hover:before {
+	visibility: visible;
+	opacity: 100%;
+	/* animation: popup_fade_in 0.5s;*/
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+}
+
+
+
+a {
+	font-weight: bold;
+	white-space: nowrap;
+	color: violet;
+	background-color: rgba(0, 0, 0, 0.5);
+	padding: 0.1em;
+	border-width: 2px;
+	border-color: white;
+	border-radius: 1vmax;
+}
+
+/* https://stackoverflow.com/questions/8160494/how-to-make-a-whole-div-clickable-in-html-and-css-without-javascript */
+a.link_fill {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	bottom: 0%;
+	left: 0%;
+	color: transparent;
+	background: none;
+}
+
+table {
+	width: 100%;
+	margin-left: auto;
+	margin-right: auto;
+	font-size: 80%;
+}
+
+table tr:nth-child(even) {
+	background-color: rgba(255, 255, 255, 0.1);
+}
+
+.error {
+	white-space: nowrap;
+	color: red;
+	font-weight: bold;
+}
+
+.fade-out {
+	animation: fade_out_item 2s;
+	animation-timing-function: ease-in;
+	opacity: 0;
+	visibility: hidden;
+}
+
+.invisible {
+	opacity: 0;
+}
+
+@keyframes fade_out_item {
+	from {
+		opacity: 1;
+		visibility: visible;
+	}
+	to {
+		opacity: 0;
+		visibility: visible;
+	}
+}
+
+.shake, .shake-instant {
+	animation: shake_item 0.2s;
+	animation-timing-function: ease-out;
+	transform-origin: middle;
+	animation-iteration-count: 2;
+	animation-delay: 0.1s;
+}
+
+.shake-instant {
+	animation-delay: 0s;
+}
+
+@keyframes shake_item { /* https://www.w3schools.com/howto/howto_css_shake_image.asp */
+	/*
+	25% {
+		transform: translate(0.5em, 0.1em) rotate(5deg);
+	}
+	75% {
+		transform: translate(-0.5em, -0.1em) rotate(-0.5deg);
+	}
+	100% {
+		transform: translate(0, 0) rotate(0deg);
+	} */
+	25% {
+		transform: rotate(5deg);
+	}
+	75% {
+		transform: rotate(-5deg);
+	}
+	100% {
+		transform: translate(0, 0) rotate(0deg);
+	}
+}
+
+@media screen and (orientation: portrait) {
+	html {
+		font-size: 5vw;
+	}
+	
+	table {
+		font-size: 50%;
+	}
+	
+	
+	form {
+		display: grid;
+		margin-left: unset;
+		border-width: 0;
+	}
+	
+	input, textarea, label, select {
+		width: 100%;
+	}
+	
+	section {
+		grid-auto-flow: row;
+	}
+	
+	body {
+		border-radius: 1.2em;
+	}
+}

@@ -1,0 +1,6 @@
+export START_DATE=10000
+export END_DATE=20000
+
+beryl setup_db.beryl
+export USER_LOGIN="$(beryl login.beryl)"
+

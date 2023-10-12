@@ -1,0 +1,17 @@
+let sql = require "~/sql"
+
+let db = sql :open (getenv "LIGHTTPD_DATA_PATH") cat: "/database"
+
+let res = db "SELECT member_id, name FROM users ORDER BY member_id DESC"
+sql :close db
+
+assert (sizeof res) == 2
+
+let u1 = res 0
+let u2 = res 1
+
+assert (u1 :member_id) == "42"
+assert (u1 :name) == "Some Other Name"
+
+assert (u2 :member_id) == "123"
+assert (u2 :name) == "Some Name"

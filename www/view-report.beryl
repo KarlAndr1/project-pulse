@@ -1,0 +1,101 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+
+let user-auth = require "user-auth"
+let admin-auth = require "admin-auth"
+let projects = require "projects"
+let utils = require "utils"
+
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+let req-type = assert (getenv "REQUEST_METHOD")
+
+let handle-get = function db report admin do
+	let project = (db "SELECT name FROM projects WHERE id = ?1" (report :project_id)) 0
+	let comments = projects :get-report-comments db (report :id)
+	
+	let prev-reports = db "
+		SELECT 
+			id, period 
+		FROM reports 
+		WHERE 
+			user_id = ?1 AND 
+			project_id = ?2 AND
+			period < ?3
+		ORDER BY period DESC" (report :user_id) (report :project_id) (report :period)
+	
+	cgi :html do
+		print-exactly (require "header.html")
+		h 1 (cat "Report for project " quote (project :name) quote ", period " (report :period))
+		if (not (empty? prev-reports)) do
+			let prev-report = prev-reports 0
+			link "Previous report" (cat "./view-report.beryl?report_id=" (prev-report :id))
+		end
+		
+		div do
+			if admin do
+				link "➥Back" (cat "view-reports.beryl?pid=" (report :project_id) "&period=" (report :period) "#report-" (report :id))
+			end
+			
+			p do
+				printf "Submitted at %0" (utils :format-time (report :time))
+				if (report :marked_read) == 1 do
+					print-exactly " (read ✓)"
+				end
+			end
+			printf "<div>%0</div>" (str-replace (report :content) newline "<br/>")
+			
+			if admin do
+				form "post-report-comment.beryl" "post" do
+					printf "<input type=%0hidden%0 name=%0report-id%0 value=%0%1%0/>" quote (report :id)
+					
+					printf "<textarea id=%0comment-field%0 name=%0comment-content%0></textarea>" quote 
+					
+					printf "<input type=%0submit%0 name=%0post-comment%0 value=%0Comment%0/>" quote
+					if (report :marked_read) == 0 do
+						printf "<input type=%0submit%0 name=%0mark-read%0 value=%0Mark as read%0/>" quote
+					end
+				end
+			end
+			
+			div do
+				h 2 "Comments"
+				if (empty? comments) do
+					p "No comments..."
+				end else do
+					for-in comments with comment do
+						div do
+							h 3 (utils :format-time (comment :time))
+							printf "<p>%0</p>" (comment :content)
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+let db = sql :open (cat server-data "/database")
+let user = user-auth :auth-user db (cookies :user-login)
+let admin = admin-auth :auth-admin db (cookies :admin-login)
+
+if req-type == "GET" do
+	let params = cgi :parse-url-parameters (getenv "QUERY_STRING")
+	let report = (db "SELECT id, user_id, project_id, period, time, content, marked_read FROM reports WHERE id = ?1" (params :report-id)) 0
+	if ((user =/= null) and? ((report :user_id) == user)) or? admin do
+		cgi :headers do
+			invoke content-type-html
+		end
+		handle-get db report admin
+	end else do
+		cgi :headers do
+			redirect "/auth-error.html"
+		end
+	end
+	
+end elseif req-type == "POST" do
+
+end
+
+sql :close db

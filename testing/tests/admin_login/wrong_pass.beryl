@@ -1,0 +1,7 @@
+let lnbrk = cat carriage-return newline
+
+let in = input read-all
+
+let lines = split in lnbrk
+
+assert (not (exists lines with x do x beginswith? "Set-Cookie:" end))

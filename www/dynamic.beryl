@@ -1,0 +1,14 @@
+let cgi = require "~/cgi"
+
+cgi :headers do
+	invoke content-type-html
+end
+
+cgi :html do
+	div do
+		p do
+			print "Hello from Beryl, random number:"
+			print (new random)
+		end
+	end
+end

@@ -1,0 +1,182 @@
+require-version 0
+
+(struct
+	:get-projects function db do
+		db "
+			SELECT id, name, report_frequency, start_date, end_date, (?1 > end_date) as archived FROM projects ORDER BY archived 
+		" (invoke time)
+	end
+	
+	:get-project-members function db project-id do
+		db "
+		SELECT 
+			u.name as name, 
+			u.member_id as member_id,
+			u.email as email,
+			u.phone_number as phone_number
+		FROM project_member_bindings as p 
+		JOIN users as u 
+			ON u.id = p.user_id 
+		WHERE p.project_id = ?1
+		" project-id
+	end
+	
+	:get-user-projects function db user-id do
+		db "
+			SELECT 
+				p.id as id, p.name as name, p.report_frequency as report_frequency, p.start_date as start_date, p.end_date as end_date
+			FROM project_member_bindings as m
+			JOIN projects as p
+				ON p.id = m.project_id
+			WHERE
+				m.user_id = ?1 AND
+				p.start_date <= ?2 AND
+				p.end_date >= ?2
+		" user-id (invoke time)
+	end
+	
+	:is-holiday function t do
+		let ts = convert-time t
+		((ts :weekday) == 5) or? ((ts :weekday) == 6)
+	end
+	
+	:get-project-report-info function db project do
+		let period = null
+		let next-period-at = null
+		let current-time = invoke time
+		
+		if (project :report_frequency) == (60 * 60 * 24) do # Special case for daily reporting
+			let date = convert-time (project :start_date)
+			period = 0 
+			loop do
+				let is-holiday = self :is-holiday (get-time date)
+				let end-date = replace date :day (date :day) + 1 # The end date is just the date + 1 day
+				next-period-at = get-time end-date
+				
+				if (not is-holiday) do
+					period += 1 # Holidays don't count as a period
+				end
+				
+				date = end-date # Increment to the next day
+				
+				# Find the first date has an end date *after* the current time and is not a holiday. I.e continue looping if the current day is
+				# a holiday *OR* the next-period-at time has already been passed
+				is-holiday or? (next-period-at < current-time) 
+			end
+		end elseif (project :report_frequency) =/= null do # Fixed frequency
+			let time-since = current-time - (project :start_date)
+			period = floor time-since / (project :report_frequency)
+			period += 1 # So that it begins with period 1, not 0
+			
+			next-period-at = (project :start_date) + (period * (project :report_frequency))
+			if (project :end_date) < next-period-at do
+				period = null
+				#next-period-at = project :end_date
+			end
+		end else do # Custom/manually picked reporting dates
+			let report-dates = db "SELECT _date FROM project_report_dates WHERE project_id = ?1 ORDER BY _date" (project :id)
+			period = first report-dates with date do # Find the first report date that is after the current date, i.e the first one still open for submissions
+				(date :_date) =>= current-time
+			end
+
+			if period =/= null do
+				next-period-at = (report-dates period) :_date
+				period += 1
+			end
+		end
+		
+		(struct
+			:period period
+			:period-ends-at next-period-at
+			:time-left next-period-at default: 0 - current-time
+		)
+	end
+	
+	:get-report function db project-id user-id period do
+		(db "
+			SELECT id, time, content, marked_read FROM reports WHERE project_id = ?1 AND user_id = ?2 AND period = ?3
+		" project-id user-id period) 0
+	end
+	
+	:submit-report function db user-id project-id content do
+		let project = (db "SELECT * FROM projects WHERE id = ?1" project-id) 0
+		
+		
+		#let members = self :get-project-members db project-id
+		#let member-is-in-project = exists members with member do
+		#	(member :user_id) == user-id
+		#end
+		
+		let member-is-in-project = not (empty? (db "
+			SELECT * FROM project_member_bindings WHERE project_id = ?1 AND user_id = ?2
+		" project-id user-id))
+		
+		let report-info = self :get-project-report-info db project
+		let period = report-info :period
+		
+		let timestamp = invoke time
+		
+		if member-is-in-project and? (timestamp =>= (project :start_date)) and? (timestamp =<= (project :end_date)) and? (period =/= null) do
+			db "
+				INSERT OR IGNORE INTO reports
+					(user_id, project_id, period, content, time) 
+				VALUES 
+					(?1, ?2, ?3, ?4, ?5)
+			" user-id project-id period content timestamp
+			true
+		end else do
+			false
+		end
+	end
+	
+	:get-report-count function db project-id period do
+		let n = (db
+			"SELECT COUNT(*) AS c FROM reports WHERE project_id = ?1 AND period = ?2"
+			project-id 
+			period
+		) 0
+		
+		n :c
+	end
+	
+	:get-reports function db project-id period marked-read do
+		db "
+			SELECT 
+				r.id as id, 
+				r.content as content, 
+				r.time as time, 
+				u.name as name, 
+				u.member_id as member_id, 
+				u.email as email, 
+				u.phone_number as phone_number,
+				r.marked_read as marked_read
+			FROM reports as r
+			JOIN users as u
+				ON u.id = r.user_id
+			WHERE
+				r.project_id = ?1 AND r.period = ?2 AND
+				(r.marked_read = ?3 OR ?3 IS NULL)
+			ORDER BY r.time DESC
+		" project-id period marked-read
+	end
+	
+	:set-project-report-dates function db project-id dates do
+		let members = self :get-project-members db project-id
+		let project = assert ((db "SELECT * FROM projects WHERE id = ?1" project-id) 0)
+		let start-date = project :start_date
+		let end-date = project :end_date
+		
+		if ((sizeof members) == 0) and? ((project :report-frequency) == null) do
+			db "DELETE FROM project_report_dates WHERE project_id = ?1" project-id
+			for-in dates with date do
+				if (date =>= start-date) and? (date =<= end-date) do
+					db "INSERT OR IGNORE INTO project_report_dates (project_id, _date) VALUES (?1, ?2)" project-id date
+				end
+			end
+		end
+	end
+	
+	:get-report-comments function db report-id do
+		db "SELECT content, time FROM report_comments WHERE report_id = ?1 ORDER BY time DESC" report-id
+	end
+)

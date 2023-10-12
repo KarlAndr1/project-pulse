@@ -1,0 +1,35 @@
+let argon2 = require "~/argon2"
+let sql = require "~/sql"
+
+let projects = require (cat (getenv "www") "/projects.beryl")
+
+let db = sql :open (cat (getenv "LIGHTTPD_DATA_PATH") "/database")
+
+let member_id = "1"
+let pass = "123"
+let salt = rands 32
+
+db "
+	INSERT INTO users (member_id, encoded_password) VALUES (?1, ?2)
+" member_id (argon2 :encode pass salt)
+let user_id = sql :get-last-insert-rowid db
+
+db "
+	INSERT INTO projects (name, report_frequency, start_date, end_date) VALUES ('Test project', ?1, ?2, ?3)
+" null (getenv "START_DATE") (getenv "END_DATE")
+let project_id = sql :get-last-insert-rowid db
+
+let start-date = parse-number (getenv "START_DATE")
+
+projects :set-project-report-dates db project_id (array
+	start-date + 1000
+	start-date + 3000
+	start-date + 7000
+	start-date + 9000
+)
+
+db "
+	INSERT INTO project_member_bindings (user_id, project_id) VALUES (?1, ?2)
+" user_id project_id
+
+

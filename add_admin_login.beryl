@@ -1,0 +1,26 @@
+#!/usr/bin/env beryl
+
+let argon2 = require "~/argon2"
+let sql = require "~/sql"
+
+let silent = exists argv with x do (x == "-s") or? (x == "--silent") end
+
+if (not silent) do
+	print "Please enter new admin login credentials:"
+end
+
+let username = input (if silent do "" end else do "Username:" end)
+let password = input (if silent do "" end else do "Password (Leave blank for random):" end)
+if password == "" do
+	password = rand-hexs 16
+	print "Random password:" password
+end
+
+let salt = rands 32
+let enc_pass = argon2 :encode password salt
+
+let db = sql :open "data/database"
+
+db "INSERT INTO admins (name, encoded_password) VALUES (?1, ?2)" username enc_pass
+
+sql :close db

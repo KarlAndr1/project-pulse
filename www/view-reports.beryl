@@ -1,0 +1,123 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+
+let admin-auth = require "admin-auth"
+let projects = require "projects"
+let utils = require "utils"
+
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+let req-type = assert (getenv "REQUEST_METHOD")
+let params = cgi :parse-url-parameters (getenv "QUERY_STRING")
+
+let display-content = function db project-id period do
+	let unread-reports = projects :get-reports db project-id period 0
+	let read-reports = projects :get-reports db project-id period 1
+	
+	let project = (db "SELECT name, report_frequency, start_date, end_date FROM projects WHERE id = ?1" project-id) 0
+	
+	# https://stackoverflow.com/questions/1247361/get-the-inverse-of-a-join
+	let members-without-reports = db "
+		SELECT * FROM (
+			SELECT
+				u.name, u.member_id, u.email, u.phone_number, r.id as rid
+			FROM users as u
+			JOIN project_member_bindings as m
+			ON
+				m.user_id = u.id AND
+				m.project_id = ?1
+			LEFT JOIN reports as r
+			ON
+				r.user_id = u.id AND
+				r.period = ?2 AND
+				r.project_id = ?1
+		)
+		WHERE
+			rid is NULL
+	" project-id period
+	
+	cgi :html do
+		print-exactly (require "header.html")
+		h 1 (cat "Reports for " (project :name) ", period " period)
+		
+		div do
+			link "➥Back" (cat "manage-project.beryl?id=" project-id)
+			
+			p do
+				if period =/= "1" do
+					link "Previous period" (cat "view-reports.beryl?pid=" project-id "&period=" ((parse-number period) - 1))
+					print-exactly " | "
+				end
+				link "Next period" (cat "view-reports.beryl?pid=" project-id "&period=" ((parse-number period) + 1))
+			end
+			
+			p do
+				printf "%0 reports submitted" (sizeof unread-reports) + (sizeof read-reports)
+			end
+		end
+		
+		section do
+			div do
+				h 2 "Unread"
+				for-in unread-reports with report do
+					printf "<p class=%0highlight clickable tooltip%0 id=%0report-%1%0 data-text=%0%2%0>" quote (report :id) (utils :format-time (report :time))
+					print-exactly (report :name)
+					printf "<a href=%0view-report.beryl?report-id=%1%0 class=%0link_fill%0>+</a>" quote (report :id);
+					print-exactly "</p>"
+				end
+			end
+			
+			div do
+				h 2 "Read"
+				for-in read-reports with report do
+					printf "<p class=%0clickable tooltip%0 id=%0report-%1%0 data-text=%0%2%0>" quote (report :id) (utils :format-time (report :time))
+						#printf "<span id=%0%1%0>%2 <time>(%3)</time></span> " quote (report :id) (report :name) (utils :format-time (report :time))
+						#link "+" (cat "view-report.beryl?report-id=" (report :id))
+						#printf "<spain id=%0report-%1%0 class=%0tooltip%0 data-text=%0%3%0>%2</span>" quote (report :id) (report :name) (utils :format-time (report :time))
+						print-exactly (report :name)
+						printf "<a href=%0view-report.beryl?report-id=%1%0 class=%0link_fill%0>+</a>" quote (report :id);
+					print-exactly "</p>"
+				end
+			end
+		end
+		
+		div do
+			h 2 "Unsubmitted"
+			for-in members-without-reports with member do
+				printf "<p class=%0red%0>" quote
+				
+				printf "%0 (%1)" (member :name) (member :member_id)
+				
+				if (member :email) =/= null do
+					print-exactly ", "
+					link (member :email) (cat "mailto:" (member :email))
+				end
+				if (member :phone_number) =/= null do
+					printf ", <a href=%0tel:%1%0 class=%0tooltip%0 data-text=%0%1%0>phone</a>" quote (member :phone_number)
+					#print-exactly ", "
+					#link "phone" (cat "tel:" (member :phone_number))
+				end
+				
+				print-exactly "</p>"
+				# printf "<p class=%0red%0>%1 (%2) |%3 %4|</p>" quote (member :name) (member :member_id) (member :email) (member :phone_number)
+			end
+		end
+	end
+end
+
+if req-type == "GET" do
+	let admin-login = cookies :admin-login
+	let db = sql :open (cat server-data "/database")
+	if (admin-auth :auth-admin db admin-login) do
+		cgi :headers do
+			invoke content-type-html
+		end
+		display-content db (params :pid) default: 0 (params :period) default: 0
+	end else do
+		cgi :headers do
+			redirect "/auth-error.html"
+		end
+	end
+	sql :close db
+end

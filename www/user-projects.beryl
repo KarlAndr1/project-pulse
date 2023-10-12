@@ -1,0 +1,85 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+
+let user-auth = require "user-auth"
+let projects = require "projects"
+let utils = require "utils"
+
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+let req-type = assert (getenv "REQUEST_METHOD")
+
+let header = function do
+	cgi :headers do
+		invoke content-type-html
+	end
+end
+
+let content = function db user-details user-projects do
+	cgi :html do
+		print-exactly (require "header.html")
+		
+		body do
+			h 1 (user-details :name)
+			h 1 "Projects"
+
+			for-in user-projects with project do
+				let report-info = projects :get-project-report-info db project
+				let report = projects :get-report db (project :id) (user-details :id) (report-info :period)
+				
+				div do
+					h 3 (project :name)
+					p do
+						printf "Project ends at %0" (utils :format-time (project :end_date))
+					end
+					if (report-info :period) =/= null do
+						p do
+							printf "Report %0 due at %1" (report-info :period) (utils :format-time (report-info :period-ends-at))
+						end
+						p do
+							printf "%0 left" (utils :format-time-diff (report-info :time-left))
+						end
+						p do
+							if report == null do
+								print-exactly "Report not submitted, "
+								link "submit report" (cat "submit-report.beryl?project_id=" (project :id))
+							end else do
+								print-exactly "Report submitted"
+								if (report :marked_read) == 1 do
+									print-exactly " (Read ✓)"
+								end
+								print-exactly ", "
+								link "view" (cat "view-report.beryl?report-id=" (report :id))
+							end
+						end
+					end else do
+						p "No reports due"
+					end
+				end
+			end
+		end
+	end
+end
+
+let handle-get = function db user do
+	invoke header
+	
+	let user-details = assert ((db "SELECT id, member_id, name FROM users WHERE id = ?1" user) 0)
+	let user-projects = projects :get-user-projects db user
+	
+	content db user-details user-projects
+end
+
+if req-type == "GET" do
+	let db = sql :open (cat server-data "/database")
+	let user = user-auth :auth-user db (cookies :user-login)
+	if user =/= null do
+		handle-get db user
+	end else do
+		cgi :headers do
+			redirect "/auth-error.html"
+		end
+	end
+	sql :close db
+end

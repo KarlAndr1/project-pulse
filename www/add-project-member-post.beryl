@@ -1,0 +1,40 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+
+let admin-auth = require "admin-auth"
+
+let req-type = assert (getenv "REQUEST_METHOD")
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+let redirect-to = null
+
+let handle-post = function db do
+	let data = cgi :parse-url-parameters (input read-all)
+	
+	let project-id = assert (data :project-id)
+	let user-id = ((db "SELECT id FROM users WHERE member_id = ?1" (data :new-user)) 0) :id
+	
+	if user-id =/= null do
+		db "INSERT OR IGNORE INTO project_member_bindings (user_id, project_id) VALUES (?1, ?2)" user-id project-id
+		redirect-to = cat "/manage-project.beryl?id=" project-id "#new-user-field"
+	end else do
+		redirect-to = cat "/manage-project.beryl?id=" project-id "&error=new-user-error-field:Invalid+ID,s:h#new-user-field"
+	end
+end
+
+if req-type == "POST" do
+	let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+	let admin-login = cookies :admin-login
+
+	let db = sql :open (cat server-data "/database")
+	if (admin-auth :auth-admin db admin-login) do
+		handle-post db
+	end else do
+		redirect-to = "/auth-error.html"
+	end
+	sql :close db
+end
+
+cgi :headers do
+	redirect redirect-to
+end

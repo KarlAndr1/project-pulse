@@ -1,0 +1,75 @@
+let sql = require "~/sql"
+let argon2 = require "~/argon2"
+
+let db = sql :open (cat (getenv "LIGHTTPD_DATA_PATH") "/database")
+
+let mail_password = strip (input read-all)
+
+let months = (array
+	"Jan"
+	"Feb"
+	"Mar"
+	"Apr"
+	"May"
+	"Jun"
+	"Jul"
+	"Aug"
+	"Sep"
+	"Oct"
+	"Nov"
+	"Dec"
+)
+
+let format-date-time = function t do
+	let two-digit = function num do
+		if num < 10 do
+			cat "0" num 
+		end else do
+			num
+		end
+	end
+	
+	let ts = convert-time t
+	
+	let year = ts :year
+	let month = months (ts :month)
+	let day = ts :day
+	
+	let hour = ts :hour
+	let min = ts :minute
+	let sec = ts :second
+	
+	cat day " " month " " year " " hour ":" min ":" sec " " "-0000"
+end
+
+let mail = function to to-name subject content do
+	let url = getenv "AUTO_EMAIL_DOMAIN"
+	let from = getenv "AUTO_EMAIL_USER"
+	
+	let mail-payload = (cat
+		"From: Project Pulse" " <" from ">" carriage-return newline
+		"To: " to-name " <" to ">" carriage-return newline
+		"Date: " (format-date-time (invoke time)) carriage-return newline #"
+		"Subject: " subject carriage-return newline #"
+		carriage-return newline
+		content
+	)
+	
+	print "Sent mail to" to
+	
+	run "./send_mail.sh" url from to pass-input (cat mail_password newline mail-payload)
+end
+
+let users-without-passwords = db "SELECT id, member_id, name, email FROM users WHERE encoded_password IS NULL"
+
+for-in users-without-passwords with user do
+
+	let password = rand-hexs 16
+	let salt = rands 32
+	let enc_pass = argon2 :encode password salt
+	db "UPDATE users SET encoded_password = ?1 WHERE id = ?2" enc_pass (user :id)
+
+	if (user :email) =/= null do
+		mail (user :email) (user :name) "Account created" (cat "Project Pulse Login:" newline "ID: " (user :member_id) newline "Password: " password) #"
+	end
+end

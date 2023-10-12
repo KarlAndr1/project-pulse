@@ -1,0 +1,82 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+
+let admin-auth = require "admin-auth"
+
+let projects = require "projects"
+let utils = require "utils"
+
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+
+let handle-get = function db project-id do
+	cgi :html do
+		print-exactly (require "header.html")
+		printf "<script src=%0/scripts/add-project-dates.js%0></script>" quote
+		
+		
+		h 1 "Select project report dates"
+		
+		print-exactly "<section>"
+			form "add-project-dates.beryl" "post" do
+				
+				printf "<input type=%0hidden%0 value=%0%1%0 name=%0project-id%0/>" quote project-id
+				
+				print-exactly "<span>"
+				printf "<input type=%0datetime-local%0 name=%0date_picker%0 id=%0date_picker%0 class=%0shakable%0>" quote
+				printf "<sub class=%0error%0 id=%0date_error_text%0><span class=%0invisible%0>***</span></sub><br/>" quote
+				
+				printf "<input type=%0button%0 onclick=%0add_date()%0/ value=%0Add%0>" quote
+				print-exactly "</span>"
+				
+				printf "<span hidden id=%0form_date_list%0> </span>" quote
+				
+				submit "Submit"
+			end
+			
+			div do
+				printf "<list id=%0date_list%0></list>" quote
+			end
+		print-exactly "</section>"
+	end
+end
+
+let handle-post = function db do
+	let data = cgi :parse-url-parameters (input read-all)
+	let project-id = data :project-id
+	
+	let dates = filter (pairs data) with entry do
+		(entry 0) beginswith? "selected_date"
+	end
+	
+	dates map= with entry do
+		utils :parse-datetime (entry 1)
+	end
+	
+	projects :set-project-report-dates db project-id dates
+	
+	cgi :headers do
+		redirect (cat "/manage-project.beryl?id=" project-id)
+	end
+end
+
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+let req-type = assert (getenv "REQUEST_METHOD")
+
+if (req-type == "GET") or? (req-type == "POST") do
+	let admin-login = cookies :admin-login
+	let db = sql :open (cat server-data "/database")
+	if (admin-auth :auth-admin db admin-login) do
+		if req-type == "GET" do
+			let params = cgi :parse-url-parameters (getenv "QUERY_STRING")
+			handle-get db (params :id)
+		end else do
+			handle-post db
+		end
+	end else do
+		cgi :headers do
+			redirect "/auth-error.html"
+		end
+	end
+	sql :close db
+end

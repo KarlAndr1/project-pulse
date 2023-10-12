@@ -1,0 +1,40 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+let argon2 = require "~/argon2"
+
+let admin-auth = require "admin-auth"
+
+let req-type = assert (getenv "REQUEST_METHOD")
+let http-header-lbrk = cat carriage-return newline
+
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+let redirect-to = "admin-login.html?error=login-error:Invalid+username+or+password,s:h"
+let auth-token-cookie = null
+
+
+let handle-post = function do
+	let in = cgi :parse-url-parameters (input read-all)
+	let username = assert (in :username)
+	let password = assert (in :password)
+	
+	let db = sql :open (cat server-data "/database")
+	let token = admin-auth :login-admin db username password
+	if token =/= null do
+		redirect-to = "/"
+		auth-token-cookie = token
+	end
+	sql :close db
+end
+
+
+if req-type == "POST" do
+	invoke handle-post
+end
+
+cgi :headers do
+	redirect redirect-to
+	if auth-token-cookie =/= null do
+		set-cookie "admin-login" auth-token-cookie "Secure" "HttpOnly"
+	end
+end

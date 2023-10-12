@@ -1,0 +1,43 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+
+let admin-auth = require "admin-auth"
+
+let projects = require "projects"
+
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+
+let req-type = assert (getenv "REQUEST_METHOD")
+
+let handle-get = function db do
+	let current-time = invoke time
+	let projects-list = projects :get-projects db
+	
+	cgi :html do
+		print-exactly (require "header.html")
+		
+		h 1 "Projects"
+		for-in projects-list with project do
+			div do
+				h 2 (project :name)
+				link "Manage" (cat "manage-project.beryl?id=" (project :id))
+				if (project :archived) == 1 do
+					p "Archived"
+				end
+			end
+		end
+	end
+end
+
+if req-type == "GET" do
+	let db = sql :open (cat server-data "/database")
+	if (admin-auth :auth-admin db (cookies :admin-login)) do
+		handle-get db
+	end else do
+		cgi :headers do
+			redirect "/auth-error.html"
+		end
+	end
+end

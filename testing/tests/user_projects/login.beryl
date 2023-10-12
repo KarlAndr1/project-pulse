@@ -1,0 +1,10 @@
+let sql = require "~/sql"
+
+let user-auth = require (getenv "www") cat: "/user-auth.beryl"
+
+let db = sql :open (cat (getenv "LIGHTTPD_DATA_PATH") "/database")
+
+let user-login = user-auth :login-user sql db "1" "123"
+assert user-login
+
+print user-login

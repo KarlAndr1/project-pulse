@@ -1,0 +1,132 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+
+let admin-auth = require "admin-auth"
+
+let projects = require "projects"
+let utils = require "utils"
+
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+
+let handle-get = function db project-id do
+	let project = (db "SELECT id, name, report_frequency, start_date, end_date FROM projects WHERE id = ?1" project-id) 0
+	let project-members = projects :get-project-members db project-id
+
+	let report-frequency = (project :report_frequency) default: (60 * 60 * 24)
+	let report-info = projects :get-project-report-info db project
+
+	let report-count = projects :get-report-count db project-id (report-info :period)
+	
+	let all-users = db "SELECT name, member_id, id FROM users"
+	#let all-users = map (db "SELECT name, member_id, id FROM users") with user do # # Map all the users into arrays like (*id*, "[name] ([member_id])")
+	#	array (user :id) (cat (user :name) " (" (user :member_id) ")")
+	#end
+	let current-time = invoke time
+	
+	cgi :headers do
+		invoke content-type-html
+	end
+
+	cgi :html do
+		print-exactly (require "header.html")
+		printf "<script src=%0/scripts/manage-project.js%0></script>" quote
+		
+		h 1 "Project Overview"
+		div do
+			link "➥Back" "view-projects.beryl"
+			
+			h 2 (as-string (project :name))
+			div do
+				if (current-time =>= (project :start_date)) and? (current-time =<= (project :end_date)) do
+					let period = report-info :period
+					let next-period-at = report-info :period-ends-at
+					let time-remaining = report-info :time-left
+					
+					if period =/= null do
+						p do
+							print-exactly "Next due date: " (utils :format-time next-period-at)
+							print-exactly " (Report " period ")"
+						end
+						p do
+							print-exactly "Time left: " (utils :format-time-diff time-remaining)
+						end
+						p do
+							printf "%0/%1 reports submitted " report-count (sizeof project-members)
+							link "View reports" (cat "view-reports.beryl?pid=" project-id "&period=" period)
+						end
+					end else do
+						p "No reports due"
+					end
+					p do
+						print-exactly "Project ends at: " (utils :format-time (project :end_date))
+					end
+				end else do
+					if current-time < (project :start_date) do
+						print-exactly "Project begins at " (utils :format-time (project :start_date))
+					end else do
+						print-exactly "Project ended at " (utils :format-time (project :end_date))
+					end
+				end
+			end
+			
+			div do
+				h 3 "Project Members"
+				html-table do
+					tr do
+						th "Id"
+						th "Name"
+						th "Email"
+						th "Phone"
+					end
+					for-in project-members with member do
+						tr do
+							td (member :member_id)
+							td (member :name)
+							td (member :email)
+							td (member :phone_number)
+						end
+					end
+				end
+				div do
+					h 4 "Add members..."
+					form "add-project-member-post.beryl" "post" "onsubmit" "return submit_new_member();" do				
+						printf "<input type=%0hidden%0 value=%0%1%0 name=%0project-id%0/>" quote (params :id)
+						label "new-user-field" "Select new member "
+						printf "<input type=%0text%0 id=%0new-user-field%0 name=%0new-user%0 list=%0all-users-list%0 placeholder=%0ID%0 class=%0shakable%0/>" quote
+						printf "<sub class=%0error%0 id=%0new-user-error-field%0><span class=%0invisible%0>***</span></sub>" quote
+						
+						printf "<datalist id=%0all-users-list%0>" quote
+						
+						for-in all-users with user do
+							printf "<option value=%0%1%0>%2 (%1)</option>" quote (user :member_id) (user :name)
+						end
+						
+						print-exactly "</datalist>"
+						#select "new-user-field" "new-user" all-users
+						
+						submit "Add"
+					end
+				end
+			end
+		end
+	end
+end
+
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+
+let params = cgi :parse-url-parameters (getenv "QUERY_STRING")
+let req-type = assert (getenv "REQUEST_METHOD")
+
+if req-type == "GET" do
+	let admin-login = cookies :admin-login
+	let db = sql :open (cat server-data "/database")
+	if (admin-auth :auth-admin db admin-login) do
+		handle-get db (params :id)
+	end else do
+		cgi :headers do
+			redirect "/auth-error.html"
+		end
+	end
+	sql :close db
+end

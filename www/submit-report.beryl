@@ -1,0 +1,48 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+
+let user-auth = require "user-auth"
+let projects = require "projects"
+
+let req-type = assert (getenv "REQUEST_METHOD")
+let params = null
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+let display-content = function project-id do
+	cgi :html do
+		print-exactly (require "header.html")
+		form "submit-report.beryl" "post" do
+			printf "<input type=%0text%0 value=%0%1%0 name=%0project_id%0 readonly/>" quote project-id
+			label "content-field" "Report"
+			printf "<textarea id=%0content-field%0 name=%0report-content%0 rows=%020%0 cols=%080%0></textarea>" quote
+			submit "Submit"
+		end
+	end
+end
+
+let handle-post = function db user-id project-id params do
+	let content = (params :report-content) default: ""
+	projects :submit-report db user-id project-id content
+end
+
+if req-type == "GET" do
+	let params = cgi :parse-url-parameters (getenv "QUERY_STRING")
+	cgi :headers do
+		invoke content-type-html
+	end
+	display-content (params :project_id) default: 0
+end elseif req-type == "POST" do
+	let params = cgi :parse-url-parameters (input read-all)
+	let db = sql :open (cat server-data "/database")
+	let user = user-auth :auth-user db (cookies :user-login)
+	if user =/= null do
+		handle-post db user (assert (params :project_id)) params
+	end
+	sql :close db
+	
+	cgi :headers do
+		redirect "/user-projects.beryl"
+	end
+end

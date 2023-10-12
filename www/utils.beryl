@@ -1,0 +1,79 @@
+(struct 
+	:two-digit-str function num do
+		if num >= 10 do
+			as-string num
+		end else do
+			cat "0" num
+		end
+	end
+	
+	:format-time function time do
+		let two-digit-str = function num do
+			if num =>= 10 do
+				as-string num
+			end else do
+				cat "0" num
+			end
+		end
+		
+		let t = convert-time time
+		let date = cat (t :year) "-" (two-digit-str (t :month) + 1) "-" (two-digit-str (t :day))
+		
+		let hour = t :hour
+		let min = t :minute
+	
+		let time-of-day = cat (two-digit-str hour) ":" (two-digit-str min)
+		cat date ", " time-of-day
+	end
+
+	:format-time-diff function time do
+		let days = floor time / 60 / 60 / 24
+		time -= days * 60 * 60 * 24
+		
+		let hours = floor time / 60 / 60
+		time -= hours * 60 * 60
+		
+		let minutes = floor time / 60
+		time -= minutes * 60
+		
+		cat days " days, " hours "h, " minutes "min"
+	end
+
+	:parse-date function str do
+		let vals = split str "-"
+		let year = parse-number (vals 0) default: "0"
+		let month = parse-number (vals 1) default: "1"
+		let day = parse-number (vals 2) default: "0"
+		
+		let ts = (struct
+			:year year
+			:month month - 1
+			:day day
+			:hour 0
+			:minute 0
+			:second 0
+			:daylight-savings false
+		)
+		
+		let t = convert-time (get-time ts)
+		ts replace= :daylight-savings (t :daylight-savings)
+		
+		get-time ts
+	end
+	
+	:parse-time function str do
+		let vals = split str ":"
+		let hour = parse-number (vals 0) default: ""
+		let minute = parse-number (vals 1) default: ""
+		
+		(hour * 60 * 60) + (minute * 60)
+	end
+	
+	:parse-datetime function str do
+		let entries = split str "T"
+		let date = self :parse-date (entries 0) default: ""
+		let t = self :parse-time (entries 1) default: ""
+		
+		date + t
+	end
+)

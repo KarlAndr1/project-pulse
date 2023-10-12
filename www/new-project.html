@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+
+<head>
+	<meta charset="utf-8">
+	<link href="/styles/generic.css" rel="stylesheet"/>
+	<script src="/scripts/generic.js"></script>
+	
+	<script src="/scripts/new-project.js"></script>
+</head>
+
+<header>
+	<nav>
+		<a href="/">Home</a> |
+		<a href="/view-users.beryl">Users</a>
+	</nav>
+</header>
+
+<h1>Create a new project</h1>
+
+<div>
+	<h2>Project Details</h2>
+	<form action="new-project-post.beryl" method="post" onsubmit="return submit_new_project();">
+		<label for="project-name-field">Project Name</label>
+		<input type="text" id="project-name-field" name="project-name" required/>
+
+		<label for="schedule-field">Reporting Frequency</schedule-field>
+		<select id="schedule-field" name="reporting-frequency">
+			<option value="every-minute">Every minute</option>
+			<option value="daily">Daily</option>
+			<option value="weekly">Weekly</option>
+			<option value="fortnightly">Fortnightly</option>
+			<option value="monthly">Monthly</option>
+			<option value="manual">Manual</option>
+		</select>
+		
+		<label for="start-date-field">Start Date</label>
+		<input type="date" id="start-date-field" name="start-date" class="shakable" required/>
+		
+		<label for="end-date-field">End Date</label>
+		<input type="date" id="end-date-field" name="end-date" class="shakable" required/>
+		
+		<sub class="error" id="start-date-error-field"><span class="invisible">Start date must be before end date</span></sub>
+		<input type="submit" value="Create"/>
+	</form>
+</div>
+
+</html>
