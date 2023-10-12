@@ -51,6 +51,10 @@ require-version 0
 			loop do
 				let is-holiday = self :is-holiday (get-time date)
 				let end-date = replace date :day (date :day) + 1 # The end date is just the date + 1 day
+				end-date = replace end-date :daylight-savings ((convert-time (get-time end-date)) :daylight-savings) # So that if we happen
+				# to cross the daylight savings edge, the end-date is 00:00 at the correct daylight savings setting. Otherwise it'd be 23:00 or 01:00
+				# basically we just take whatever time the end date is at, check if that is within daylight savings and if so adjust it
+				
 				next-period-at = get-time end-date
 				
 				if (not is-holiday) do
