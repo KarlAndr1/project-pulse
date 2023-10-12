@@ -8,6 +8,7 @@ export www="$(realpath ../www)"
 
 for test_case in ./tests/*; do
 	cd $test_case
+	echo "Test case $test_case"
 	for test in ./*.sh; do
 		cd ../../
 		./init_tests.sh

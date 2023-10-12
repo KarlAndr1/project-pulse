@@ -7,6 +7,6 @@ Content-Type: text/csv\r
 42, Some Other Name, someother@email.uk, 123123
 \r
 x----------------------------30428063825360894072016294269--\r\n' |
-beryl $www/add-users-post.beryl > /dev/null
+beryl "$www/add-users-post.beryl" > /dev/null
 
 beryl 1_check_db.beryl
