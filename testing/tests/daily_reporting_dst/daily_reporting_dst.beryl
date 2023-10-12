@@ -1,0 +1,57 @@
+let sql = require "~/sql"
+
+let projects = require (getenv "www") cat: "/projects"
+
+let is-midnight = function t do
+	(and? 
+		(t :hour) == 0
+		(t :minute) == 0
+		(t :second) == 0
+	)
+end
+
+invoke do
+	let start-date = parse-number (getenv "START_DATE")
+	let end-date = parse-number (getenv "END_DATE")
+	
+	let a-day = 60 * 60 * 24
+	
+	let fixed-time = null
+	let global time = function do
+		fixed-time
+	end
+	
+	let db = sql :open (getenv "LIGHTTPD_DATA_PATH") cat: "/database"
+	
+	let project = (db "SELECT * FROM projects") 0
+	assert (project :name) == "test-project"
+	
+	fixed-time = start-date
+	let r = projects :get-project-report-info db project
+	assert (r :period) == 1
+	assert (r :period-ends-at) == (start-date + a-day) # 00:00:00 on October the 28th, a saturday.
+	assert (r :time-left) == a-day
+	
+	fixed-time = start-date + a-day + 1 # 00:00:01 28th October
+	r = projects :get-project-report-info db project
+	assert (r :period) == 2
+	assert (r :period-ends-at) == (start-date + (a-day * 4) + (60 * 60)) #Due to daylight savings ending, it will be exactly 4 'days' + 1 hour
+	# I.e the entirety of saturday, sunday, and monday, plus one hour due to the clocks being turned back
+	# DST ends at the 29th, a sunday. The period 2 ends at 00:00:00 the 31st, a tuesday
+	assert (r :time-left) == ((a-day * 3) + (60 * 60) - 1)
+	let end-time = convert-time (r :period-ends-at)
+	assert (end-time :day) == 31
+	assert (end-time :month) == 9
+	assert (is-midnight end-time)
+	assert (end-time :daylight-savings) == false #Not really testing the system as much as just making sure the test environment is correct
+	
+	fixed-time =  (r :period-ends-at) + 1
+	r = projects :get-project-report-info db project
+	assert (r :period) == 3
+	assert (r :period-ends-at) == (start-date + (a-day * 5) + (60 * 60))
+	assert (r :time-left) == (a-day - 1)
+	end-time = convert-time (r :period-ends-at)
+	assert (end-time :day) == 1
+	assert (end-time :month) == 10
+	assert (is-midnight end-time)
+end

@@ -1,0 +1,12 @@
+export START_DATE=1698357600 # 27 October 2023 00:00:00, a friday
+export END_DATE=1698793200 # 1 November 2023 00:00:00, a wednesday
+
+export TZ=Europe/Stockholm
+
+sqlite3 "$LIGHTTPD_DATA_PATH/database" <<SQL
+INSERT INTO projects
+	(name, report_frequency, start_date, end_date) 
+VALUES
+	('test-project', 60 * 60 * 24, $START_DATE, $END_DATE)
+;
+SQL
