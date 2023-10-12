@@ -26,7 +26,7 @@ invoke do
 	let project = (db "SELECT * FROM projects") 0
 	assert (project :name) == "test-project"
 	
-	fixed-time = start-date
+	fixed-time = start-date # The start date is 00:00:00 27th October, a firday
 	let r = projects :get-project-report-info db project
 	assert (r :period) == 1
 	assert (r :period-ends-at) == (start-date + a-day) # 00:00:00 on October the 28th, a saturday.
