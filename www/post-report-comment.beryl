@@ -17,7 +17,7 @@ let handle-post = function db params do
 				(report_id, time, content) 
 			VALUES
 				(?1, ?2, ?3)
-		" (params :report-id) (invoke time) (params :comment-content)
+		" (params :report-id) (invoke time) (cgi :sanitize-html (params :comment-content))
 	end
 end
 
