@@ -10,12 +10,24 @@ let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
 
 
 let handle-get = function db project-id do
+	let project = projects :get-project db project-id
+	
 	cgi :html do
 		print-exactly (require "header.html")
 		printf "<script src=%0/scripts/add-project-dates.js%0></script>" quote
 		
 		
 		h 1 "Select project report dates"
+		
+		printf "<input type=%0hidden%0 id=%0project_end_date%0 value=%0%1%0/>" quote (utils :format-time-iso (project :end_date))
+		printf "<input type=%0hidden%0 id=%0project_start_date%0 value=%0%1%0/>" quote (utils :format-time-iso (project :start_date))
+		
+		p do
+			printf "Project start date: <time>%0</time>" (utils :format-time (project :start_date))
+		end
+		p do
+			printf "Project end date: <time>%0</time>"  (utils :format-time (project :end_date))
+		end
 		
 		print-exactly "<section>"
 			form "add-project-dates.beryl" "post" do

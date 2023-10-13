@@ -40,6 +40,22 @@ function err_msg(msg) {
 function add_date() {
 	const date = document.getElementById("date_picker");
 	
+	const start_date = new Date(document.getElementById("project_start_date").value);
+	const end_date = new Date(document.getElementById("project_end_date").value);
+	
+	const date_time = new Date(date.value);
+	
+	console.log(date_time + ", " + start_date + ", " + end_date);
+	
+	if(date_time < start_date) {
+		err_msg("Date is before project start date");
+		return;
+	}
+	if(date_time > end_date) {
+		err_msg("Date is past project end date");
+		return;
+	}
+	
 	if(dates.includes(date.value)) {
 		err_msg("Duplicate date");
 		return;

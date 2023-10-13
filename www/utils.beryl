@@ -25,6 +25,12 @@
 		let time-of-day = cat (two-digit-str hour) ":" (two-digit-str min)
 		cat date ", " time-of-day
 	end
+	
+	:format-time-iso function time do
+		let t = self :format-time time
+		t str-replace= ", " "T"
+		t
+	end
 
 	:format-time-diff function time do
 		let days = floor time / 60 / 60 / 24

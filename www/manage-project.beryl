@@ -10,7 +10,8 @@ let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
 
 
 let handle-get = function db project-id do
-	let project = (db "SELECT id, name, report_frequency, start_date, end_date FROM projects WHERE id = ?1" project-id) 0
+	#let project = (db "SELECT id, name, report_frequency, start_date, end_date FROM projects WHERE id = ?1" project-id) 0
+	let project = projects :get-project db project-id
 	let project-members = projects :get-project-members db project-id
 
 	let report-frequency = (project :report_frequency) default: (60 * 60 * 24)
@@ -72,40 +73,46 @@ let handle-get = function db project-id do
 			
 			div do
 				h 3 "Project Members"
-				html-table do
-					tr do
-						th "Id"
-						th "Name"
-						th "Email"
-						th "Phone"
-					end
-					for-in project-members with member do
+				if (sizeof project-members) > 0 do
+					html-table do
 						tr do
-							td (member :member_id)
-							td (member :name)
-							td (member :email)
-							td (member :phone_number)
+							th "Id"
+							th "Name"
+							th "Email"
+							th "Phone"
+						end
+						for-in project-members with member do
+							tr do
+								td (member :member_id)
+								td (member :name)
+								td (member :email)
+								td (member :phone_number)
+							end
 						end
 					end
+				end else do
+					p "None..."
 				end
-				div do
-					h 4 "Add members..."
-					form "add-project-member-post.beryl" "post" "onsubmit" "return submit_new_member();" do				
-						printf "<input type=%0hidden%0 value=%0%1%0 name=%0project-id%0/>" quote (params :id)
-						label "new-user-field" "Select new member "
-						printf "<input type=%0text%0 id=%0new-user-field%0 name=%0new-user%0 list=%0all-users-list%0 placeholder=%0ID%0 class=%0shakable%0/>" quote
-						printf "<sub class=%0error%0 id=%0new-user-error-field%0><span class=%0invisible%0>***</span></sub>" quote
-						
-						printf "<datalist id=%0all-users-list%0>" quote
-						
-						for-in all-users with user do
-							printf "<option value=%0%1%0>%2 (%1)</option>" quote (user :member_id) (user :name)
+				if (project :archived) == 0 do
+					div do
+						h 4 "Add members..."
+						form "add-project-member-post.beryl" "post" "onsubmit" "return submit_new_member();" do				
+							printf "<input type=%0hidden%0 value=%0%1%0 name=%0project-id%0/>" quote (params :id)
+							label "new-user-field" "Select new member "
+							printf "<input type=%0text%0 id=%0new-user-field%0 name=%0new-user%0 list=%0all-users-list%0 placeholder=%0ID%0 class=%0shakable%0/>" quote
+							printf "<sub class=%0error%0 id=%0new-user-error-field%0><span class=%0invisible%0>***</span></sub>" quote
+							
+							printf "<datalist id=%0all-users-list%0>" quote
+							
+							for-in all-users with user do
+								printf "<option value=%0%1%0>%2 (%1)</option>" quote (user :member_id) (user :name)
+							end
+							
+							print-exactly "</datalist>"
+							#select "new-user-field" "new-user" all-users
+							
+							submit "Add"
 						end
-						
-						print-exactly "</datalist>"
-						#select "new-user-field" "new-user" all-users
-						
-						submit "Add"
 					end
 				end
 			end

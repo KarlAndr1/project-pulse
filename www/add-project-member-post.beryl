@@ -1,6 +1,8 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
 
+let projects = require "projects"
+
 let admin-auth = require "admin-auth"
 
 let req-type = assert (getenv "REQUEST_METHOD")
@@ -14,7 +16,9 @@ let handle-post = function db do
 	let project-id = assert (data :project-id)
 	let user-id = ((db "SELECT id FROM users WHERE member_id = ?1" (data :new-user)) 0) :id
 	
-	if user-id =/= null do
+	let project = projects :get-project db project-id
+	
+	if (user-id =/= null) and? ((project :archived) == 0) do
 		db "INSERT OR IGNORE INTO project_member_bindings (user_id, project_id) VALUES (?1, ?2)" user-id project-id
 		redirect-to = cat "/manage-project.beryl?id=" project-id "#new-user-field"
 	end else do

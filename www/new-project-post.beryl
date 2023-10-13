@@ -30,7 +30,9 @@ let handle-post = function db do
 	let start-date = utils :parse-date (data :start-date)
 	let end-date = utils :parse-date (data :end-date)
 	
-	if start-date =<= end-date do
+	let current-time = invoke time
+	
+	if (start-date =<= end-date) and? (end-date =>= current-time) do
 		db "INSERT INTO projects (name, report_frequency, start_date, end_date) VALUES (?1, ?2, ?3, ?4)" name freq-time start-date end-date
 		let new-project-id = sql :get-last-insert-rowid db
 		
