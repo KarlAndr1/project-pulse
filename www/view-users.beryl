@@ -23,16 +23,14 @@ cgi :html do
 				th "Name"
 				th "Email"
 				th "Phone"
-				#th "Hashed password"
 			end
 			
 			for-in users with user do
 				tr do
-					td (as-string (user :member_id))
-					td (user :name)
-					td (user :email)
-					td (user :phone_number)
-					#td (user :encoded_password)
+					td (cgi :sanitize-html (user :member_id))
+					td (cgi :sanitize-html (user :name))
+					td (cgi :sanitize-html (user :email) default: "")
+					td (cgi :sanitize-html (user :phone_number) default: "")
 				end
 			end
 		end

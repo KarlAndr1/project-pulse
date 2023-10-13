@@ -24,9 +24,6 @@ end
 
 let handle-post = function db user-id project-id params do
 	let content = (params :report-content) default: ""
-	
-	content = cgi :sanitize-html content # Remove stuff like < and > to make sure XSS attacks aren't possible
-	
 	projects :submit-report db user-id project-id content
 end
 

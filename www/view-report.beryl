@@ -11,6 +11,14 @@ let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
 let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
 let req-type = assert (getenv "REQUEST_METHOD")
 
+let format-content-for-html = function content do
+	content = cgi :sanitize-html content
+	
+	content str-replace= newline "<br/>"
+	
+	content
+end
+
 let handle-get = function db report admin do
 	let project = (db "SELECT name FROM projects WHERE id = ?1" (report :project_id)) 0
 	let comments = projects :get-report-comments db (report :id)
@@ -27,7 +35,7 @@ let handle-get = function db report admin do
 	
 	cgi :html do
 		print-exactly (require "header.html")
-		h 1 (cat "Report for project " quote (project :name) quote ", period " (report :period))
+		h 1 (cat "Report for project " (cgi :sanitize-html (project :name)) ", period " (report :period))
 		if (not (empty? prev-reports)) do
 			let prev-report = prev-reports 0
 			link "Previous report" (cat "./view-report.beryl?report_id=" (prev-report :id))
@@ -44,7 +52,7 @@ let handle-get = function db report admin do
 					print-exactly " (read ✓)"
 				end
 			end
-			printf "<div>%0</div>" (str-replace (report :content) newline "<br/>")
+			printf "<div>%0</div>" (format-content-for-html (report :content))
 			
 			if admin do
 				form "post-report-comment.beryl" "post" do
@@ -67,7 +75,7 @@ let handle-get = function db report admin do
 					for-in comments with comment do
 						div do
 							h 3 (utils :format-time (comment :time))
-							printf "<p>%0</p>" (comment :content)
+							printf "<p>%0</p>" (format-content-for-html (comment :content))
 						end
 					end
 				end

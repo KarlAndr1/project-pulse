@@ -37,7 +37,7 @@ let handle-get = function db project-id do
 		div do
 			link "➥Back" "view-projects.beryl"
 			
-			h 2 (as-string (project :name))
+			h 2 (cgi :sanitize-html (project :name))
 			div do
 				if (current-time =>= (project :start_date)) and? (current-time =<= (project :end_date)) do
 					let period = report-info :period
@@ -83,10 +83,10 @@ let handle-get = function db project-id do
 						end
 						for-in project-members with member do
 							tr do
-								td (member :member_id)
-								td (member :name)
-								td (member :email)
-								td (member :phone_number)
+								td (cgi :sanitize-html (member :member_id))
+								td (cgi :sanitize-html (member :name))
+								td (cgi :sanitize-html (member :email) default: "")
+								td (cgi :sanitize-html (member :phone_number) default: "")
 							end
 						end
 					end
@@ -105,7 +105,7 @@ let handle-get = function db project-id do
 							printf "<datalist id=%0all-users-list%0>" quote
 							
 							for-in all-users with user do
-								printf "<option value=%0%1%0>%2 (%1)</option>" quote (user :member_id) (user :name)
+								printf "<option value=%0%1%0>%2 (%1)</option>" quote (cgi :sanitize-html (user :member_id)) (cgi :sanitize-html (user :name))
 							end
 							
 							print-exactly "</datalist>"

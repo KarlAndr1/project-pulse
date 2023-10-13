@@ -39,7 +39,7 @@ let display-content = function db project-id period do
 	
 	cgi :html do
 		print-exactly (require "header.html")
-		h 1 (cat "Reports for " (project :name) ", period " period)
+		h 1 (cat "Reports for " (cgi :sanitize-html (project :name)) ", period " period)
 		
 		div do
 			link "➥Back" (cat "manage-project.beryl?id=" project-id)
@@ -62,7 +62,7 @@ let display-content = function db project-id period do
 				h 2 "Unread"
 				for-in unread-reports with report do
 					printf "<p class=%0highlight clickable tooltip%0 id=%0report-%1%0 data-text=%0%2%0>" quote (report :id) (utils :format-time (report :time))
-					print-exactly (report :name)
+					print-exactly (cgi :sanitize-html (report :name))
 					printf "<a href=%0view-report.beryl?report-id=%1%0 class=%0link_fill%0>+</a>" quote (report :id);
 					print-exactly "</p>"
 				end
@@ -75,7 +75,7 @@ let display-content = function db project-id period do
 						#printf "<span id=%0%1%0>%2 <time>(%3)</time></span> " quote (report :id) (report :name) (utils :format-time (report :time))
 						#link "+" (cat "view-report.beryl?report-id=" (report :id))
 						#printf "<spain id=%0report-%1%0 class=%0tooltip%0 data-text=%0%3%0>%2</span>" quote (report :id) (report :name) (utils :format-time (report :time))
-						print-exactly (report :name)
+						print-exactly (cgi :sanitize-html (report :name))
 						printf "<a href=%0view-report.beryl?report-id=%1%0 class=%0link_fill%0>+</a>" quote (report :id);
 					print-exactly "</p>"
 				end
@@ -87,14 +87,14 @@ let display-content = function db project-id period do
 			for-in members-without-reports with member do
 				printf "<p class=%0red%0>" quote
 				
-				printf "%0 (%1)" (member :name) (member :member_id)
+				printf "%0 (%1)" (cgi :sanitize-html (member :name)) (cgi :sanitize-html (member :member_id))
 				
 				if (member :email) =/= null do
 					print-exactly ", "
-					link (member :email) (cat "mailto:" (member :email))
+					link (cgi :sanitize-html (member :email)) (cat "mailto:" (cgi :sanitize-html (member :email)))
 				end
 				if (member :phone_number) =/= null do
-					printf ", <a href=%0tel:%1%0 class=%0tooltip%0 data-text=%0%1%0>phone</a>" quote (member :phone_number)
+					printf ", <a href=%0tel:%1%0 class=%0tooltip%0 data-text=%0%1%0>phone</a>" quote (cgi :sanitize-html (member :phone_number))
 					#print-exactly ", "
 					#link "phone" (cat "tel:" (member :phone_number))
 				end

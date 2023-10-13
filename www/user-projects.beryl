@@ -21,7 +21,7 @@ let content = function db user-details user-projects do
 		print-exactly (require "header.html")
 		
 		body do
-			h 1 (user-details :name)
+			h 1 (cgi :sanitize-html (user-details :name))
 			h 1 "Projects"
 
 			for-in user-projects with project do
@@ -29,7 +29,7 @@ let content = function db user-details user-projects do
 				let report = projects :get-report db (project :id) (user-details :id) (report-info :period)
 				
 				div do
-					h 3 (project :name)
+					h 3 (cgi :sanitize-html (project :name))
 					p do
 						printf "Project ends at %0" (utils :format-time (project :end_date))
 					end

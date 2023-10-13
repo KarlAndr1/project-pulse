@@ -24,7 +24,6 @@ let handle-post = function db do
 	let data = cgi :parse-url-parameters (input read-all)
 	
 	let name = assert (data :project-name)
-	name = cgi :sanitize-html name
 	
 	let freq = assert (data :reporting-frequency)
 	

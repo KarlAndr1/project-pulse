@@ -21,7 +21,7 @@ let handle-get = function db do
 		h 1 "Projects"
 		for-in projects-list with project do
 			div do
-				h 2 (project :name)
+				h 2 (cgi :sanitize-html (project :name))
 				link "Manage" (cat "manage-project.beryl?id=" (project :id))
 				if (project :archived) == 1 do
 					p "Archived"
