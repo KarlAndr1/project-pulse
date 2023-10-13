@@ -34,6 +34,7 @@ section {
 
 
 div {
+	display: block;
 	border-style: none none none solid;
 	border-color: rgba(255, 255, 255, 0.1);
 	border-width: 0.5vmax;
@@ -42,6 +43,7 @@ div {
 	padding: 0.5em;
 	margin: 1vmax;
 	/* overflow: auto; */
+	
 }
 
 form {
@@ -117,7 +119,9 @@ input[type="submit"] {
 	border-width: 0.2em;
 	padding: 8px;
 	
-	border-image: linear-gradient(orange, purple) 20;
+	/* border-image: linear-gradient(orange, purple) 20; */
+	border-image: linear-gradient(color-mix(in srgb, orange, purple 20%), color-mix(in srgb, orange 20%, purple)) 1;
+	
 }
 
 input[type="file"] {
@@ -213,12 +217,15 @@ a:hover, p.clickable:hover {
 	/* background-image: linear-gradient(rgba(255, 165, 0, 0.1), rgba(128, 0, 128, 0.1)); */
 	padding: 0.5em;
 	transition: all 0.5s;
-	border-width: 0.2em;
+	/* border-width: 0.28vmax; */
+	/* border-width: 3px; */
+	border-width: 0.15rem;
 	border-style: solid;
 	background-color: rgba(128, 0, 128, 0.1);
 	
 	/* border-color: crimson; */
-	border-image: linear-gradient(orange, purple) 20;
+	/* border-image: linear-gradient(orange, purple) 1; */
+	border-image: linear-gradient(color-mix(in srgb, orange, purple 20%), color-mix(in srgb, orange 20%, purple)) 1;
 	
 }
 .tooltip:hover:before {
@@ -254,11 +261,30 @@ a.link_fill {
 }
 
 table {
+	table-layout: fixed;
 	width: 100%;
-	margin-left: auto;
-	margin-right: auto;
-	font-size: 80%;
+	font-size: 75%;
 }
+
+/* https://stackoverflow.com/questions/4457506/set-the-table-column-width-constant-regardless-of-the-amount-of-text-in-its-cell */
+
+td, th {
+	overflow: clip;
+	overflow-clip-margin: 99999px; /* Kind of a hack, but makes text-overflow work whilst still rendering the tooltips that are outside the box */
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+td:hover {
+	background-color: rgba(0, 0, 0, 0.5);
+}
+
+/*
+td:before {
+	content: get-attr(tooltip)
+}
+*/
+
 
 table tr:nth-child(even) {
 	background-color: rgba(255, 255, 255, 0.1);

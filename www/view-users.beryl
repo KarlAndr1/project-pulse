@@ -27,10 +27,24 @@ cgi :html do
 			
 			for-in users with user do
 				tr do
-					td (cgi :sanitize-html (user :member_id))
-					td (cgi :sanitize-html (user :name))
-					td (cgi :sanitize-html (user :email) default: "")
-					td (cgi :sanitize-html (user :phone_number) default: "")
+					#td (cgi :sanitize-html (user :member_id))
+					#td (cgi :sanitize-html (user :name))
+					#td (cgi :sanitize-html (user :email) default: "")
+					#td (cgi :sanitize-html (user :phone_number) default: "")
+					printf "<td>%0</td>" (cgi :sanitize-html (user :member_id))
+					printf "<td class='tooltip' data-text='%0'>%0</td>" (cgi :sanitize-html (user :name))
+					
+					if (user :email) =/= null do
+						printf "<td class='tooltip' data-text='%0'>%0</td>" (cgi :sanitize-html (user :email))
+					end else do
+						print-exactly "<td>...</td>"
+					end
+					
+					if (user :phone_number) =/= null do
+						printf "<td class='tooltip' data-text='%0'>%0</td>" (cgi :sanitize-html (user :phone_number))
+					end else do
+						print-exactly "<td>...</td>"
+					end
 				end
 			end
 		end
