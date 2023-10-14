@@ -4,6 +4,7 @@ let argon2 = require "~/argon2"
 let db = sql :open (cat (getenv "LIGHTTPD_DATA_PATH") "/database")
 
 let mail_password = strip (input read-all)
+let encode-password = require "./encode_password"
 
 let months = (array
 	"Jan"
@@ -65,8 +66,7 @@ let users-without-passwords = db "SELECT id, member_id, name, email FROM users W
 for-in users-without-passwords with user do
 
 	let password = rand-hexs 16
-	let salt = rands 32
-	let enc_pass = argon2 :encode password salt
+	let enc_pass = encode-password argon2 password
 	db "UPDATE users SET encoded_password = ?1 WHERE id = ?2" enc_pass (user :id)
 
 	if (user :email) =/= null do

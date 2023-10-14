@@ -16,8 +16,8 @@ if password == "" do
 	print "Random password:" password
 end
 
-let salt = rands 32
-let enc_pass = argon2 :encode password salt
+let encode-password = require "./encode_password"
+let enc_pass = encode-password argon2 password
 
 let db = sql :open "data/database"
 

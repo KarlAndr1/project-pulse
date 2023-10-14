@@ -1,0 +1,12 @@
+(struct
+	:argon2 (require "~/argon2")
+	
+	:new-session-token function do
+		let new-token = rand-hexs 32
+		let salt = rands 32
+		# Encode the session token with less secure, but faster settings compared to passwords
+		let encoded-token = (self :argon2) :encode new-token salt 1 (1024 * 16) 2
+		
+		array new-token encoded-token
+	end
+)

@@ -14,7 +14,7 @@ let display-content = function project-id do
 	cgi :html do
 		print-exactly (require "header.html")
 		form "submit-report.beryl" "post" do
-			printf "<input type=%0text%0 value=%0%1%0 name=%0project_id%0 readonly/>" quote project-id
+			printf "<input type=%0hidden%0 value=%0%1%0 name=%0project_id%0 readonly/>" quote project-id
 			label "content-field" "Report"
 			printf "<textarea id=%0content-field%0 name=%0report-content%0 rows=%020%0 cols=%080%0></textarea>" quote
 			submit "Submit"

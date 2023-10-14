@@ -53,6 +53,8 @@ form {
 	border-color: grey;
 	display: inline-block;
 	margin: 16px;
+	max-width: 90%;
+	max-height: 90%;
 }
 
 list {
@@ -83,6 +85,13 @@ input, textarea, label, select {
 	border-width: 0;
 	padding: 4px;
 	outline: none;
+}
+
+textarea {
+	display: block;
+	width: 10%;
+	max-width: 95%;
+	max-height: 100%;
 }
 
 label {

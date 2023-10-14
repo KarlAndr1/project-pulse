@@ -29,6 +29,10 @@ if req-type == "POST" do
 		cgi :headers do
 			redirect (cat "view-report.beryl?report-id=" (params :report-id) "#comment-field")
 		end
+	end else do
+		cgi :headers do
+			redirect "auth-error.html"
+		end
 	end
 	sql :close db
 end
