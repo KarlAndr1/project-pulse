@@ -21,12 +21,17 @@ let project_id = sql :get-last-insert-rowid db
 
 let start-date = parse-number (getenv "START_DATE")
 
-projects :set-project-report-dates db project_id (array
-	start-date + 1000
-	start-date + 3000
-	start-date + 7000
-	start-date + 9000
-)
+invoke do 
+	let global time = function do
+		start-date # So that the project isn't considered 'archived' (meaning that dates can't be added)
+	end
+	projects :set-project-report-dates db project_id (array
+		start-date + 1000
+		start-date + 3000
+		start-date + 7000
+		start-date + 9000
+	)
+end
 
 db "
 	INSERT INTO project_member_bindings (user_id, project_id) VALUES (?1, ?2)
