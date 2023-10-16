@@ -2,7 +2,7 @@
 
 source ./env.sh
 
-rm -fr -v "$LIGHTTPD_CONTENT_PATH/*"
+rm -fr -v "$LIGHTTPD_CONTENT_PATH"/*
 
 cp -rt "$LIGHTTPD_CONTENT_PATH" www/*
 
