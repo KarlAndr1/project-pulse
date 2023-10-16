@@ -11,14 +11,6 @@ let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
 let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
 let req-type = assert (getenv "REQUEST_METHOD")
 
-let format-content-for-html = function content do
-	content = cgi :sanitize-html content
-	
-	content str-replace= newline "<br/>"
-	
-	content
-end
-
 let handle-get = function db report admin do
 	let project = (db "SELECT name FROM projects WHERE id = ?1" (report :project_id)) 0
 	let comments = projects :get-report-comments db (report :id)
@@ -34,7 +26,7 @@ let handle-get = function db report admin do
 		ORDER BY period DESC" (report :user_id) (report :project_id) (report :period)
 	
 	cgi :html do
-		print-exactly (require "header.html")
+		template (require "header.html")
 		h 1 (cat "Report for project " (cgi :sanitize-html (project :name)) ", period " (report :period))
 		if (not (empty? prev-reports)) do
 			let prev-report = prev-reports 0
@@ -47,22 +39,22 @@ let handle-get = function db report admin do
 			end
 			
 			p do
-				printf "Submitted at %0" (utils :format-time (report :time))
+				template "Submitted at %0" (utils :format-time (report :time))
 				if (report :marked_read) == 1 do
-					print-exactly " (read ✓)"
+					template "(read ✓)"
 				end
 			end
-			printf "<div>%0</div>" (format-content-for-html (report :content))
+			template "<div>%0</div>" (report :content)
 			
 			if admin do
 				form "post-report-comment.beryl" "post" do
-					printf "<input type=%0hidden%0 name=%0report-id%0 value=%0%1%0/>" quote (report :id)
+					template "<input type='hidden' name='report-id' value='%0'>" (report :id)
 					
-					printf "<textarea id=%0comment-field%0 name=%0comment-content%0></textarea>" quote 
+					template "<textarea id='comment-field' name='comment-content'></textarea>"
 					
-					printf "<input type=%0submit%0 name=%0post-comment%0 value=%0Comment%0/>" quote
+					template "<input type='submit' name='post-comment' value='Comment'/>"
 					if (report :marked_read) == 0 do
-						printf "<input type=%0submit%0 name=%0mark-read%0 value=%0Mark as read%0/>" quote
+						template "<input type='submit' name='mark-read' value='Mark as read'/>"
 					end
 				end
 			end
@@ -75,7 +67,7 @@ let handle-get = function db report admin do
 					for-in comments with comment do
 						div do
 							h 3 (utils :format-time (comment :time))
-							printf "<p>%0</p>" (format-content-for-html (comment :content))
+							p (comment :content)
 						end
 					end
 				end

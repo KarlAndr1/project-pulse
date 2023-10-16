@@ -1,0 +1,92 @@
+let cgi = require "~/cgi"
+let sql = require "~/sql"
+
+let user-auth = require "user-auth"
+let projects = require "projects"
+let utils = require "utils"
+
+let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+
+let handle-get = function user do
+	cgi :headers do
+		content-type "text/html"
+	end
+	
+	cgi :html do
+		template (require "header.html")
+		template "<script src='/scripts/manage-user-profile.js'></script>"
+		
+		body do
+			h 1 (user :name) cat: " profile overview"
+			section do
+				div do
+					template "
+						<ul>
+							<li>Name: %0</li>
+							<li>Phone: %1</li>
+							<li>Email: %2</li>
+							<li>ID: %3</li>
+						</ul>
+					" (user :name) (user :phone) default: "None" (user :email) default: "None" (user :member_id)
+				end
+				div do
+					h 2 "Update password"
+					template "<form method='post' onsubmit='return update_password_submit();'>"
+						template "<label for='old-password-field'>Current password</label>"
+						template "<input type='password' name='old-password' id='old-password-field' required>"
+						template "<sub class='error' id='old-password-field-error'></sub>"
+						
+						template "<label for='new-password-field-1'>New password</label>"
+						template "<input type='password' name='new-password-1' id='new-password-field-1' class='shakable' required>"
+						
+						template "<label for='new-password-field-2'>Confirm password</label>"
+						template "<input type='password' name='new-password-2' id='new-password-field-2' class='shakable' required>"
+						template "<sub class='error' id='password-field-error'></sub>"
+						
+						template "<input type='submit' value='Update password'/>"
+					template "</form>"
+				end
+				
+			end
+		end
+	end
+end
+
+let handle-post = function db user-id params do
+	let redirect-to = null
+	if (params :new-password-1) == (params :new-password-2) do
+		let correct = user-auth :update-password db user-id (params :old-password) (params :new-password-1)
+		if correct do
+			redirect-to = "./"
+		end else do
+			redirect-to = "manage-user-profile.beryl?error=old-password-field-error:Invalid+password,old-password-field:s"
+		end
+	end else do
+		redirect-to "manage-user-profile.beryl"
+	end
+	
+	cgi :headers do
+		redirect (assert redirect-to)
+	end
+end
+
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+let req-type = assert (getenv "REQUEST_METHOD")
+
+let db = sql :open (cat server-data "/database")
+let user-id = user-auth :auth-user db (cookies :user-login)
+let user = (db "SELECT member_id, name, email, phone_number, encoded_password FROM users WHERE id = ?1" user-id) 0
+
+if user-id == null do
+	cgi :headers do
+		redirect "auth-error.html"
+	end
+end else do
+	if req-type == "GET" do
+		sql :close db
+		handle-get user
+	end elseif req-type == "POST" do
+		let params = cgi :parse-url-parameters (input read-all)
+		handle-post db user-id params
+	end
+end

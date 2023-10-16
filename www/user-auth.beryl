@@ -56,4 +56,23 @@ require-version 0
 
 		user
 	end
+	
+	:verify-password function db user-id password do
+		let encoded-pass = ((db "SELECT encoded_password FROM users WHERE id = ?1" user-id) 0) :encoded_password
+		if encoded-pass =/= null do
+			(self :argon2) :verify encoded-pass password
+		end else do
+			false
+		end
+	end
+	
+	:update-password function db user-id old-password new-password do
+		if (self :verify-password db user-id old-password) do
+			let encoded-pass = (self :auth) :encode-password new-password
+			db "UPDATE users SET encoded_password = ?1 WHERE id = ?2" encoded-pass user-id
+			true
+		end else do
+			false
+		end
+	end
 )

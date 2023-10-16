@@ -4,7 +4,7 @@ let argon2 = require "~/argon2"
 let db = sql :open (cat (getenv "LIGHTTPD_DATA_PATH") "/database")
 
 let mail_password = strip (input read-all)
-let encode-password = require "./encode_password"
+let encode-password = (require "www/auth") :encode-password
 
 let months = (array
 	"Jan"

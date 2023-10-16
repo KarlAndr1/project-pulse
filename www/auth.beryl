@@ -9,4 +9,12 @@
 		
 		array new-token encoded-token
 	end
+	
+	:encode-password function pass do
+		let hash-iterations = 2
+		let hash-mem-usage = 1024 * 1024 / 8
+		let hash-threads = 2
+		let salt = rands 32
+		(self :argon2) :encode pass salt hash-iterations hash-mem-usage hash-threads
+	end
 )

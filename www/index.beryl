@@ -28,6 +28,8 @@ let handle-get = function do
 				p do
 					link "View projects" "user-projects.beryl"
 					print-exactly " | "
+					link "Profile" "manage-user-profile.beryl"
+					print-exactly " | "
 					link "Log out" "user-logout.html"
 				end
 			end else do

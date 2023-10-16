@@ -28,8 +28,8 @@ body {
 
 section {
 	display: grid;
-	grid-auto-flow: column;
-	grid-auto-columns: 1fr;
+	grid-template-columns: 1fr 1fr; 
+	grid-column-gap: 12px;
 }
 
 
@@ -40,14 +40,16 @@ div {
 	border-width: 0.5vmax;
 	background-color: rgba(255, 255, 255, 0.08);
 	border-radius: 1em;
-	padding: 0.5em;
-	margin: 1vmax;
+	padding: 0.25em;
+	/* margin: 1vmax; */
+	margin-top: 0.5rem;
+	margin-bottom: 0.5rem;
 	/* overflow: auto; */
 	
 }
 
 form {
-	padding: 4px 16px 4px 16px;
+	padding: 4px 8px 4px 8px;
 	border-style: none dotted none dotted;
 	border-width: 0.2em;
 	border-color: grey;
@@ -382,7 +384,7 @@ table tr:nth-child(even) {
 	}
 	
 	section {
-		grid-auto-flow: row;
+		grid-template-columns: 1fr;
 	}
 	
 	body {
