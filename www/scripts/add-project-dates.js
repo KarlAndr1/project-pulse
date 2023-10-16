@@ -16,7 +16,7 @@ function update_date_list(animate) {
 	let i = 0;
 	for(const date of dates) {
 		const extra = (i == dates.length - 1) || animate? 'class="fade-in"' : '';
-		res_list += `<li ${extra}>${new Date(date).toLocaleString()} <input type="button" value="Remove" onclick="remove_date(${i})"/></li>`;
+		res_list += `<p ${extra}>${new Date(date).toLocaleString()} <input type="button" value="Remove" onclick="remove_date(${i})"/></p>`;
 		form_list += `<input type="datetime-local" name="selected_date_${i}" value="${date}" readonly/>`
 		i++;
 	}
@@ -44,8 +44,6 @@ function add_date() {
 	const end_date = new Date(document.getElementById("project_end_date").value);
 	
 	const date_time = new Date(date.value);
-	
-	console.log(date_time + ", " + start_date + ", " + end_date);
 	
 	if(date_time < start_date) {
 		err_msg("Date is before project start date");

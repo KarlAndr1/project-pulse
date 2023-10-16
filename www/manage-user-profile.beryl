@@ -21,12 +21,10 @@ let handle-get = function user do
 			section do
 				div do
 					template "
-						<ul>
-							<li>Name: %0</li>
-							<li>Phone: %1</li>
-							<li>Email: %2</li>
-							<li>ID: %3</li>
-						</ul>
+						<p>Name: %0</p>
+						<p>Phone: %1</p>
+						<p>Email: %2</p>
+						<p>ID: %3</p>
 					" (user :name) (user :phone) default: "None" (user :email) default: "None" (user :member_id)
 				end
 				div do

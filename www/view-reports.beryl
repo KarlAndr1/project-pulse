@@ -38,8 +38,8 @@ let display-content = function db project-id period do
 	" project-id period
 	
 	cgi :html do
-		print-exactly (require "header.html")
-		h 1 (cat "Reports for " (cgi :sanitize-html (project :name)) ", period " period)
+		template (require "header.html")
+		h 1 (cat "Reports for " (project :name) ", period " period)
 		
 		div do
 			link "➥Back" (cat "manage-project.beryl?id=" project-id)
@@ -53,7 +53,7 @@ let display-content = function db project-id period do
 			end
 			
 			p do
-				printf "%0 reports submitted" (sizeof unread-reports) + (sizeof read-reports)
+				template "%0 reports submitted" (sizeof unread-reports) + (sizeof read-reports)
 			end
 		end
 		
@@ -61,23 +61,24 @@ let display-content = function db project-id period do
 			div do
 				h 2 "Unread"
 				for-in unread-reports with report do
-					printf "<p class=%0highlight clickable tooltip%0 id=%0report-%1%0 data-text=%0%2%0>" quote (report :id) (utils :format-time (report :time))
-					print-exactly (cgi :sanitize-html (report :name))
-					printf "<a href=%0view-report.beryl?report-id=%1%0 class=%0link_fill%0>+</a>" quote (report :id);
-					print-exactly "</p>"
+					template "
+						<p class='highlight clickable tooltip' id='report-%0' data-text='%1'>
+							%2
+							<a href='view-report.beryl?report-id=%0' class='link_fill'>View</a> 
+						</p>
+					" (report :id) (utils :format-time (report :time)) (report :name)
 				end
 			end
 			
 			div do
 				h 2 "Read"
 				for-in read-reports with report do
-					printf "<p class=%0clickable tooltip%0 id=%0report-%1%0 data-text=%0%2%0>" quote (report :id) (utils :format-time (report :time))
-						#printf "<span id=%0%1%0>%2 <time>(%3)</time></span> " quote (report :id) (report :name) (utils :format-time (report :time))
-						#link "+" (cat "view-report.beryl?report-id=" (report :id))
-						#printf "<spain id=%0report-%1%0 class=%0tooltip%0 data-text=%0%3%0>%2</span>" quote (report :id) (report :name) (utils :format-time (report :time))
-						print-exactly (cgi :sanitize-html (report :name))
-						printf "<a href=%0view-report.beryl?report-id=%1%0 class=%0link_fill%0>+</a>" quote (report :id);
-					print-exactly "</p>"
+					template "
+						<p class='clickable tooltip' id='report-%0' data-text='%1'>
+							%2
+							<a href='view-report.beryl?report-id=%0' class='link_fill'>View</a> 
+						</p>
+					" (report :id) (utils :format-time (report :time)) (report :name)
 				end
 			end
 		end
@@ -85,22 +86,17 @@ let display-content = function db project-id period do
 		div do
 			h 2 "Unsubmitted"
 			for-in members-without-reports with member do
-				printf "<p class=%0red%0>" quote
+				template "<p class='red'>"
 				
-				printf "%0 (%1)" (cgi :sanitize-html (member :name)) (cgi :sanitize-html (member :member_id))
-				
-				if (member :email) =/= null do
-					print-exactly ", "
-					link (cgi :sanitize-html (member :email)) (cat "mailto:" (cgi :sanitize-html (member :email)))
-				end
-				if (member :phone_number) =/= null do
-					printf ", <a href=%0tel:%1%0 class=%0tooltip%0 data-text=%0%1%0>phone</a>" quote (cgi :sanitize-html (member :phone_number))
-					#print-exactly ", "
-					#link "phone" (cat "tel:" (member :phone_number))
-				end
-				
-				print-exactly "</p>"
-				# printf "<p class=%0red%0>%1 (%2) |%3 %4|</p>" quote (member :name) (member :member_id) (member :email) (member :phone_number)
+					template "%0 (%1)" (member :name) (member :member_id)
+					if (member :email) =/= null do
+						template ", <a href='mailto:%0' class='tooltip' data-text='%0'>email</a>" (member :email)
+					end
+					if (member :phone_number) =/= null do
+						template ", <a href='tel:%0' class='tooltip' data-text='%0'>phone</a>" (member :phone_number)
+					end
+					
+				template "</p>"
 			end
 		end
 	end

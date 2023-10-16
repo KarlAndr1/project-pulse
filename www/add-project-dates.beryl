@@ -46,9 +46,7 @@ let handle-get = function db project-id do
 				submit "Submit"
 			end
 			
-			div do
-				printf "<list id=%0date_list%0></list>" quote
-			end
+			template "<div id='date_list'></div>"
 		print-exactly "</section>"
 	end
 end

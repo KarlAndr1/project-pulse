@@ -18,7 +18,7 @@ body {
 	margin-right: auto;
 	max-width: 100vmin;
 	box-shadow: 0.5em 0.5em 1em black;
-	border-radius: 1em;
+	border-radius: 1rem;
 	padding: 16px;
 	background-color: rgb(10, 25, 25);
 	color: linen;
@@ -26,12 +26,20 @@ body {
 	overflow: auto;
 }
 
+body > p {
+	margin: 1rem;
+}
+
 section {
 	display: grid;
 	grid-template-columns: 1fr 1fr; 
-	grid-column-gap: 12px;
+	grid-column-gap: 0.5rem;
+	grid-row-gap: 0.5rem;
 }
 
+section, div {
+	margin: 0.5rem;
+}
 
 div {
 	display: block;
@@ -39,17 +47,21 @@ div {
 	border-color: rgba(255, 255, 255, 0.1);
 	border-width: 0.5vmax;
 	background-color: rgba(255, 255, 255, 0.08);
-	border-radius: 1em;
-	padding: 0.25em;
-	/* margin: 1vmax; */
-	margin-top: 0.5rem;
-	margin-bottom: 0.5rem;
-	/* overflow: auto; */
-	
+	border-radius: 1rem;
+	padding: 0.4rem;
+}
+
+section > div {
+	display: inline-block;
+	margin: 0;
+}
+
+section > div > form {
+	margin: 0;
 }
 
 form {
-	padding: 4px 8px 4px 8px;
+	padding: 4px 16px 4px 16px;
 	border-style: none dotted none dotted;
 	border-width: 0.2em;
 	border-color: grey;
@@ -57,6 +69,7 @@ form {
 	margin: 16px;
 	max-width: 90%;
 	max-height: 90%;
+	margin-bottom: auto;
 }
 
 list {
@@ -64,7 +77,7 @@ list {
 }
 
 .fade-in {
-	border-radius: 0.5em;
+	border-radius: 0em;
 	animation: fade_in_item 0.5s;
 }
 
@@ -78,7 +91,7 @@ list {
 }
 
 input, textarea, label, select {
-	display: grid;
+	display: block;
 	font-size: 1em;
 	margin-right: auto;
 	margin-top: 4px;
@@ -139,7 +152,7 @@ input[type="file"] {
 	border-radius: 2vmax;
 	border-style: dotted;
 	border-width: 4px;
-	padding: 16px 0px 16px 8px;
+	padding: 16px 8px 16px 8px;
 	margin-top: 16px;
 	margin-bottom: 16px;
 	text-align: left;
@@ -374,13 +387,17 @@ table tr:nth-child(even) {
 	
 	
 	form {
-		display: grid;
+		display: block;
 		margin-left: unset;
 		border-width: 0;
+		margin: 0;
 	}
 	
 	input, textarea, label, select {
+		display: block;
 		width: 100%;
+		margin-left: 0;
+		margin-right: 0;
 	}
 	
 	section {

@@ -41,7 +41,7 @@ let handle-get = function db report admin do
 			p do
 				template "Submitted at %0" (utils :format-time (report :time))
 				if (report :marked_read) == 1 do
-					template "(read ✓)"
+					template " (read ✓)"
 				end
 			end
 			template "<div>%0</div>" (report :content)
