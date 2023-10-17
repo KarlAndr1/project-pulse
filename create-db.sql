@@ -24,7 +24,9 @@ CREATE TABLE projects (
 	report_frequency INTEGER,
 	
 	start_date INTEGER,
-	end_date INTEGER
+	end_date INTEGER,
+	
+	sent_notifications_count INTEGER DEFAULT 0
 );
 
 CREATE TABLE project_report_dates (
@@ -82,4 +84,13 @@ CREATE TABLE report_comments (
 	content TEXT,
 	
 	FOREIGN KEY (report_id) REFERENCES reports(id)
+);
+
+CREATE TABLE email_queue ( -- SHOULD ONLY BE USED TO STORE NON-CONFIDENTIAL EMAILS, LIKE REMINDERS AND NOTIFICATIONS
+	id INTEGER PRIMARY KEY,
+	
+	to_name TEXT NOT NULL,
+	to_email TEXT NOT NULL,
+	subject TEXT NOT NULL,
+	content TEXT NOT NULL
 );

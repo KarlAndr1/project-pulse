@@ -1,10 +1,14 @@
 let sql = require "~/sql"
 let argon2 = require "~/argon2"
 
+let auth = require "www/auth"
+let projects = require "www/projects"
+let utils = require "www/utils"
+let mail-template = require "www/mail-templates/mail-template"
+
 let db = sql :open (cat (getenv "LIGHTTPD_DATA_PATH") "/database")
 
 let mail_password = strip (input read-all)
-let auth = require "www/auth"
 
 let months = (array
 	"Jan"
@@ -63,6 +67,8 @@ end
 
 let users-without-passwords = db "SELECT id, member_id, name, email FROM users WHERE encoded_password IS NULL"
 
+let new-user-email-template = require "www/mail-templates/new-user.template"
+
 for-in users-without-passwords with user do
 
 	let password = rand-hexs 16
@@ -70,6 +76,48 @@ for-in users-without-passwords with user do
 	db "UPDATE users SET encoded_password = ?1 WHERE id = ?2" enc_pass (user :id)
 
 	if (user :email) =/= null do
-		mail (user :email) (user :name) "Account created" (cat "Project Pulse Login:" newline "ID: " (user :member_id) newline "Password: " password) #"
+		let email-content = mail-template new-user-email-template (struct
+			:USER_ID (user :member_id)
+			:USER_NAME (user :name)
+			:PASSWORD password
+		)
+		mail (user :email) (user :name) "Account created" email-content
+	end
+end
+
+let email-queue = db "SELECT id, to_name, to_email, subject, content FROM email_queue"
+
+for-in email-queue with due-email do
+	mail (due-email :to_email) (due-email :to_name) (due-email :subject) (due-email :content)
+	db "DELETE FROM email_queue WHERE id = ?1" (due-email :id)
+end
+
+let all-projects = projects :get-projects db
+
+let deadline-email-template = require "www/mail-templates/report-deadline-notification.template"
+
+for-in all-projects with project do
+	let project-members = projects :get-project-members db (project :id)
+	let current-time = invoke time
+
+	if (current-time =>= (project :start_date)) and? (current-time =<= (project :end_date)) do
+		let reporting-details = projects :get-project-report-info db project
+		let period = reporting-details :period
+		if (period =/= null) do
+			if period > (project :sent_notifications_count) and? ((reporting-details :time-left) =<= 86400) do
+				db "UPDATE projects SET sent_notifications_count = ?1" period
+				for-in project-members with member do
+					let submitted-report = projects :get-report db (project :id) (member :id) period
+					if submitted-report == null do
+						let mail-content = mail-template deadline-email-template (struct
+							:PROJECT (project :name)
+							:TIME_LEFT (utils :format-time-diff (reporting-details :time-left))
+							:SUBMIT_REPORT_URL (cat "submit-report.beryl?project_id=" (project :id))
+						)
+						mail (member :email) (member :name) "Report deadline notification" mail-content
+					end
+				end
+			end
+		end
 	end
 end

@@ -2,6 +2,7 @@ let cgi = require "~/cgi"
 let sql = require "~/sql"
 
 let projects = require "projects"
+let mail-template = require "mail-templates/mail-template"
 
 let admin-auth = require "admin-auth"
 
@@ -9,6 +10,8 @@ let req-type = assert (getenv "REQUEST_METHOD")
 let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
 
 let redirect-to = null
+
+let notification-email-template = require "mail-templates/added-to-project.template"
 
 let handle-post = function db do
 	let data = cgi :parse-url-parameters (input read-all)
@@ -19,8 +22,17 @@ let handle-post = function db do
 	let project = projects :get-project db project-id
 	
 	if (user-id =/= null) and? ((project :archived) == 0) do
-		db "INSERT OR IGNORE INTO project_member_bindings (user_id, project_id) VALUES (?1, ?2)" user-id project-id
-		redirect-to = cat "/manage-project.beryl?id=" project-id "#new-user-field"
+		try do
+			db "INSERT INTO project_member_bindings (user_id, project_id) VALUES (?1, ?2)" user-id project-id
+			
+			let mail = mail-template notification-email-template (struct
+				:PROJECT_NAME (project :name)
+			)
+			projects :send-email-notification db user-id "New project" mail
+			redirect-to = cat "/manage-project.beryl?id=" project-id "#new-user-field"
+		end catch with err do
+			redirect-to = cat "/manage-project.beryl?id=" project-id "&error=new-user-error-field:User+is+already+a+member,s:h#new-user-field"
+		end
 	end else do
 		redirect-to = cat "/manage-project.beryl?id=" project-id "&error=new-user-error-field:Invalid+ID,s:h#new-user-field"
 	end

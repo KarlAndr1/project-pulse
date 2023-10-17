@@ -2,7 +2,7 @@
 read -s password
 body=$(cat)
 
-curl --url "$1" --silent --ssl-reqd --netrc-file <(
+curl --url "$1" --no-progress-meter --ssl-reqd --netrc-file <(
 	cat <<< "default"
 	cat <<< "login $2"
 	cat <<< "password $password"

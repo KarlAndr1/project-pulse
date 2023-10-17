@@ -1,0 +1,7 @@
+function template params do
+	foreach-in params with name value do
+		template str-replace= (cat "%" name "%") value
+	end
+	
+	template
+end

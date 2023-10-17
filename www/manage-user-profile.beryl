@@ -58,6 +58,7 @@ let handle-post = function db user-id params do
 		let correct = user-auth :update-password db user-id (params :old-password) (params :new-password-1)
 		if correct do
 			redirect-to = "./"
+			projects :send-email-notification db user-id "Password updated" (require "mail-templates/updated-password.template")
 		end else do
 			redirect-to = "manage-user-profile.beryl?error=old-password-field-error:Invalid+password,old-password-field:s"
 		end

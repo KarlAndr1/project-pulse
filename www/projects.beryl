@@ -3,19 +3,20 @@ require-version 0
 (struct
 	:get-projects function db do
 		db "
-			SELECT id, name, report_frequency, start_date, end_date, (?1 > end_date) as archived FROM projects ORDER BY archived 
+			SELECT id, name, report_frequency, start_date, end_date, (?1 > end_date) as archived, sent_notifications_count FROM projects ORDER BY archived 
 		" (invoke time)
 	end
 	
 	:get-project function db project-id do
 		(db "
-			SELECT id, name, report_frequency, start_date, end_date, (?1 > end_date) as archived FROM projects WHERE id = ?2
+			SELECT id, name, report_frequency, start_date, end_date, (?1 > end_date) as archived, sent_notifications_count FROM projects WHERE id = ?2
 		" (invoke time) project-id) 0
 	end
 	
 	:get-project-members function db project-id do
 		db "
 		SELECT 
+			u.id as id,
 			u.name as name, 
 			u.member_id as member_id,
 			u.email as email,
@@ -72,6 +73,10 @@ require-version 0
 				# Find the first date has an end date *after* the current time and is not a holiday. I.e continue looping if the current day is
 				# a holiday *OR* the next-period-at time has already been passed
 				is-holiday or? (next-period-at < current-time) 
+			end
+			
+			if next-period-at > (project :end_date) do
+				period = null
 			end
 		end elseif (project :report_frequency) =/= null do # Fixed frequency
 			let time-since = current-time - (project :start_date)
@@ -188,5 +193,15 @@ require-version 0
 	
 	:get-report-comments function db report-id do
 		db "SELECT content, time FROM report_comments WHERE report_id = ?1 ORDER BY time DESC" report-id
+	end
+	
+	:send-email-notification function db user-id subject content do
+		let user = (db "SELECT name, email FROM users WHERE id = ?1" user-id) 0
+		if (user :email) =/= null do
+			db "INSERT INTO email_queue (to_name, to_email, subject, content) VALUES (?1, ?2, ?3, ?4)" (user :name) (user :email) subject content
+			true
+		end else do
+			false
+		end
 	end
 )
