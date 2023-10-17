@@ -7,6 +7,8 @@ let utils = require "utils"
 
 let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
 
+let min-password-length = 8
+
 let handle-get = function user do
 	cgi :headers do
 		content-type "text/html"
@@ -35,7 +37,7 @@ let handle-get = function user do
 						template "<sub class='error' id='old-password-field-error'></sub>"
 						
 						template "<label for='new-password-field-1'>New password</label>"
-						template "<input type='password' name='new-password-1' id='new-password-field-1' class='shakable' required>"
+						template "<input type='password' name='new-password-1' id='new-password-field-1' class='shakable' minlength='%0' required>" min-password-length
 						
 						template "<label for='new-password-field-2'>Confirm password</label>"
 						template "<input type='password' name='new-password-2' id='new-password-field-2' class='shakable' required>"
@@ -52,7 +54,7 @@ end
 
 let handle-post = function db user-id params do
 	let redirect-to = null
-	if (params :new-password-1) == (params :new-password-2) do
+	if ((params :new-password-1) == (params :new-password-2)) and? ((sizeof (params :new-password-1)) =>= min-password-length) do
 		let correct = user-auth :update-password db user-id (params :old-password) (params :new-password-1)
 		if correct do
 			redirect-to = "./"
