@@ -18,10 +18,10 @@ end
 
 let content = function db user-details user-projects do
 	cgi :html do
-		print-exactly (require "header.html")
+		template (require "header.html")
 		
 		body do
-			h 1 (cgi :sanitize-html (user-details :name))
+			h 1 (user-details :name)
 			h 1 "Projects"
 
 			for-in user-projects with project do
@@ -29,7 +29,7 @@ let content = function db user-details user-projects do
 				let report = projects :get-report db (project :id) (user-details :id) (report-info :period)
 				
 				div do
-					h 3 (cgi :sanitize-html (project :name))
+					h 3 (project :name)
 					p do
 						printf "Project ends at %0" (utils :format-time (project :end_date))
 					end
@@ -56,6 +56,24 @@ let content = function db user-details user-projects do
 					end else do
 						p "No reports due"
 					end
+					
+					template "<details>"
+						template "<summary>Project members</summary>"
+						div do
+							let members = projects :get-project-members db (project :id)
+							for-in members with member do
+								p do
+									template "%0 (%1)" (member :name) (member :member_id)
+									if (member :email) =/= null do
+										template ", <a href='mailto:%0' class='tooltip' data-text='%0'>email</a>" (member :email)
+									end
+									if (member :phone_number) =/= null do
+										template ", <a href='tel:%0' class='tooltip' data-text='%0'>phone</a>" (member :phone_number)
+									end
+								end
+							end
+						end
+					template "</details>"
 				end
 			end
 		end
