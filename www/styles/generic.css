@@ -260,6 +260,10 @@ a:hover, p.clickable:hover {
 	-webkit-backdrop-filter: blur(10px);
 }
 
+.tooltip:before:empty {
+	display: none;
+}
+
 
 
 a {

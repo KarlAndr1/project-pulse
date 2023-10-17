@@ -30,14 +30,14 @@ let handle-get = function db project-id do
 	end
 
 	cgi :html do
-		print-exactly (require "header.html")
-		printf "<script src=%0/scripts/manage-project.js%0></script>" quote
+		template (require "header.html")
+		template "<script src='/scripts/manage-project.js'></script>"
 		
 		h 1 "Project Overview"
 		div do
 			link "➥Back" "view-projects.beryl"
 			
-			h 2 (cgi :sanitize-html (project :name))
+			h 2 (project :name)
 			div do
 				if (current-time =>= (project :start_date)) and? (current-time =<= (project :end_date)) do
 					let period = report-info :period
@@ -46,27 +46,29 @@ let handle-get = function db project-id do
 					
 					if period =/= null do
 						p do
-							print-exactly "Next due date: " (utils :format-time next-period-at)
-							print-exactly " (Report " period ")"
+							template "Next due date: %0 (Report %0)" (utils :format-time next-period-at) period
 						end
 						p do
-							print-exactly "Time left: " (utils :format-time-diff time-remaining)
+							template "Time left: %0" (utils :format-time-diff time-remaining)
 						end
 						p do
-							printf "%0/%1 reports submitted " report-count (sizeof project-members)
-							link "View reports" (cat "view-reports.beryl?pid=" project-id "&period=" period)
+							template "
+								%0/%1 reports submitted
+								<a href='view-reports.beryl?pid=%2&period=%3'>View reports</a>
+							" report-count (sizeof project-members) project-id period
 						end
 					end else do
 						p "No reports due"
 					end
 					p do
-						print-exactly "Project ends at: " (utils :format-time (project :end_date))
+						template "Project ends at: %0" (utils :format-time (project :end_date))
 					end
 				end else do
 					if current-time < (project :start_date) do
-						print-exactly "Project begins at " (utils :format-time (project :start_date))
+						format "Project begins at %0" (utils :format-time (project :start_date))
+						print-exactly "Project begins at " 
 					end else do
-						print-exactly "Project ended at " (utils :format-time (project :end_date))
+						format "Project ended at %0" (utils :format-time (project :end_date))
 					end
 				end
 			end
@@ -81,12 +83,21 @@ let handle-get = function db project-id do
 							th "Email"
 							th "Phone"
 						end
+						
+						let tooltipped_td = function str do
+							if (str == "") or? (str == null) do
+								template "<td></td>"
+							end else do
+								template "<td class='tooltip' data-text='%0'>%0</td>" str
+							end
+						end
+						
 						for-in project-members with member do
 							tr do
-								td (cgi :sanitize-html (member :member_id))
-								td (cgi :sanitize-html (member :name))
-								td (cgi :sanitize-html (member :email) default: "")
-								td (cgi :sanitize-html (member :phone_number) default: "")
+								td (member :member_id)
+								tooltipped_td (member :name)
+								tooltipped_td (member :email)
+								tooltipped_td (member :phone_number)
 							end
 						end
 					end
@@ -96,21 +107,21 @@ let handle-get = function db project-id do
 				if (project :archived) == 0 do
 					div do
 						h 4 "Add members..."
-						form "add-project-member-post.beryl" "post" "onsubmit" "return submit_new_member();" do				
-							printf "<input type=%0hidden%0 value=%0%1%0 name=%0project-id%0/>" quote (params :id)
+						form "add-project-member-post.beryl" "post" "onsubmit" "return submit_new_member();" do
+							template "<input type='hidden' value='%0' name='project-id'/>" (params :id)	
+										
 							label "new-user-field" "Select new member "
-							printf "<input type=%0text%0 id=%0new-user-field%0 name=%0new-user%0 list=%0all-users-list%0 placeholder=%0ID%0 class=%0shakable%0/>" quote
-							printf "<sub class=%0error%0 id=%0new-user-error-field%0><span class=%0invisible%0>***</span></sub>" quote
+							template "<input type='text' id='new-user-field' name='new-user' list='all-users-list' placeholder='ID' class='shakable'/>"
+							template "<sub class='error' id='new-user-error-field'></sub>"
 							
-							printf "<datalist id=%0all-users-list%0>" quote
+							template "<datalist id='all-users-list'>"
 							
 							for-in all-users with user do
-								printf "<option value=%0%1%0>%2 (%1)</option>" quote (cgi :sanitize-html (user :member_id)) (cgi :sanitize-html (user :name))
+								template "<option value='%0'>%1 (%0)</option>" (user :member_id) (user :name)
 							end
 							
-							print-exactly "</datalist>"
-							#select "new-user-field" "new-user" all-users
-							
+							template "</datalist>"
+
 							submit "Add"
 						end
 					end
