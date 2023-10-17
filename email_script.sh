@@ -7,5 +7,5 @@ trap "echo Email system closed" EXIT
 
 while true; do
 	beryl auto_email.beryl <<< "$password"
-	sleep 1s
+	sleep 5s
 done
