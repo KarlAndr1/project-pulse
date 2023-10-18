@@ -2,31 +2,15 @@ let cgi = require "~/cgi"
 let sql = require "~/sql"
 
 let admin-auth = require "admin-auth"
+let db-interface = require "db-interface"
 
-let projects = require "projects"
 let utils = require "utils"
 
-let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
-
-
-let handle-get = function db project-id do
-	#let project = (db "SELECT id, name, report_frequency, start_date, end_date FROM projects WHERE id = ?1" project-id) 0
-	let project = projects :get-project db project-id
-	let project-members = projects :get-project-members db project-id
-
-	let report-frequency = (project :report_frequency) default: (60 * 60 * 24)
-	let report-info = projects :get-project-report-info db project
-
-	let report-count = projects :get-report-count db project-id (report-info :period)
-	
-	let all-users = db "SELECT name, member_id, id FROM users"
-	#let all-users = map (db "SELECT name, member_id, id FROM users") with user do # # Map all the users into arrays like (*id*, "[name] ([member_id])")
-	#	array (user :id) (cat (user :name) " (" (user :member_id) ")")
-	#end
+let handle-get = function project report-info project-members report-count all-users do
 	let current-time = invoke time
 	
 	cgi :headers do
-		invoke content-type-html
+		content-type "text/html"
 	end
 
 	cgi :html do
@@ -55,7 +39,7 @@ let handle-get = function db project-id do
 							template "
 								%0/%1 reports submitted
 								<a href='view-reports.beryl?pid=%2&period=%3'>View reports</a>
-							" report-count (sizeof project-members) project-id period
+							" report-count (sizeof project-members) (project :id) period
 						end
 					end else do
 						p "No reports due"
@@ -137,14 +121,18 @@ let params = cgi :parse-url-parameters (getenv "QUERY_STRING")
 let req-type = assert (getenv "REQUEST_METHOD")
 
 if req-type == "GET" do
-	let admin-login = cookies :admin-login
-	let db = sql :open (cat server-data "/database")
-	if (admin-auth :auth-admin db admin-login) do
-		handle-get db (params :id)
+	let project-id = parse-number (params :id)	
+	
+	let db = sql :open (db-interface :db-path)
+	let project = db-interface :get-project-details db (cookies :admin-login) project-id
+	let all-users = db-interface :get-all-users db (cookies :admin-login)
+	sql :close db
+	
+	if project =/= null do
+		handle-get (project :project) (project :report-info) (project :members) (project :report-count) all-users
 	end else do
 		cgi :headers do
 			redirect "/auth-error.html"
 		end
 	end
-	sql :close db
 end

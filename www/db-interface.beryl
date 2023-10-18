@@ -188,5 +188,131 @@ require-version 0
 		end
 	end
 	
+	:get-project-details function db admin-token project-id do
+		if (self :auth-admin db admin-token) do
+			let project = (db "
+				SELECT id, name, report_frequency, start_date, end_date, (?1 > end_date) as archived, sent_notifications_count FROM projects WHERE id = ?2
+			" (invoke time) project-id) 0
+			let project-report-details = self :__get-project-report-info db project
+			let project-members = self :__get-project-members db project-id
+			let report-count = sizeof (self :__get-reports db project-id (project-report-details :period) null)
+			
+			struct :project project :report-info project-report-details :members project-members :report-count report-count
+		end else do
+			null
+		end
+	end
+	
+	:get-all-users function db admin-token do
+		if (self :auth-admin db admin-token) do
+			db "SELECT id, member_id, name, email, phone_number FROM users"
+		end else do
+			null
+		end
+	end
+	
+	# ---------- General, both user and admin related
+	
+	:__get-reports function db project-id period marked-read do #Marked read can be either 0, 1, or null (i.e both)
+		db "
+			SELECT 
+				r.id as id, 
+				r.content as content, 
+				r.time as time, 
+				u.name as name, 
+				u.member_id as member_id, 
+				u.email as email, 
+				u.phone_number as phone_number,
+				r.marked_read as marked_read
+			FROM reports as r
+			JOIN users as u
+				ON u.id = r.user_id
+			WHERE
+				r.project_id = ?1 AND r.period = ?2 AND
+				(r.marked_read = ?3 OR ?3 IS NULL)
+			ORDER BY r.time DESC
+		" project-id period marked-read
+	end
+	
+	:is-holiday function t do
+		let ts = convert-time t
+		((ts :weekday) == 5) or? ((ts :weekday) == 6)
+	end
+	
+	:__get-project-report-info function db project do
+		let period = null
+		let next-period-at = null
+		let current-time = invoke time
+		
+		if (project :report_frequency) == (60 * 60 * 24) do # Special case for daily reporting
+			let date = convert-time (project :start_date)
+			period = 0 
+			loop do
+				let is-holiday = self :is-holiday (get-time date)
+				let end-date = replace date :day (date :day) + 1 # The end date is just the date + 1 day
+				end-date = replace end-date :daylight-savings ((convert-time (get-time end-date)) :daylight-savings) # So that if we happen
+				# to cross the daylight savings edge, the end-date is 00:00 at the correct daylight savings setting. Otherwise it'd be 23:00 or 01:00
+				# basically we just take whatever time the end date is at, check if that is within daylight savings and if so adjust it
+				
+				next-period-at = get-time end-date
+				
+				if (not is-holiday) do
+					period += 1 # Holidays don't count as a period
+				end
+				
+				date = end-date # Increment to the next day
+				
+				# Find the first date has an end date *after* the current time and is not a holiday. I.e continue looping if the current day is
+				# a holiday *OR* the next-period-at time has already been passed
+				is-holiday or? (next-period-at < current-time) 
+			end
+			
+			if next-period-at > (project :end_date) do
+				period = null
+			end
+		end elseif (project :report_frequency) =/= null do # Fixed frequency
+			let time-since = current-time - (project :start_date)
+			period = floor time-since / (project :report_frequency)
+			period += 1 # So that it begins with period 1, not 0
+			
+			next-period-at = (project :start_date) + (period * (project :report_frequency))
+			if (project :end_date) < next-period-at do
+				period = null
+				#next-period-at = project :end_date
+			end
+		end else do # Custom/manually picked reporting dates
+			let report-dates = db "SELECT _date FROM project_report_dates WHERE project_id = ?1 ORDER BY _date" (project :id)
+			period = first report-dates with date do # Find the first report date that is after the current date, i.e the first one still open for submissions
+				(date :_date) =>= current-time
+			end
+
+			if period =/= null do
+				next-period-at = (report-dates period) :_date
+				period += 1
+			end
+		end
+		
+		(struct
+			:period period
+			:period-ends-at next-period-at
+			:time-left next-period-at default: 0 - current-time
+		)
+	end
+	
+	:__get-project-members function db project-id do
+		db "
+		SELECT 
+			u.id as id,
+			u.name as name, 
+			u.member_id as member_id,
+			u.email as email,
+			u.phone_number as phone_number
+		FROM project_member_bindings as p 
+		JOIN users as u 
+			ON u.id = p.user_id 
+		WHERE p.project_id = ?1
+		" project-id
+	end
+	
 	:db-path (cat (getenv "LIGHTTPD_DATA_PATH") "/database")
 )
