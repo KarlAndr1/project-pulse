@@ -22,7 +22,7 @@ let handle-get = function user-projects do
 				let report = project-entry 3
 				
 				div do
-					h 3 (project :name)
+					template "<h3 id='project-%0'>%1</h3>" (project :id) (project :name)
 					p do
 						template "Project ends at %0" (utils :format-time (project :end_date))
 					end

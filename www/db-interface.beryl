@@ -356,6 +356,37 @@ require-version 0
 		end
 	end
 	
+	:submit-report function db user-token project-id content do
+		let user = self :auth-user db user-token
+		
+		if user =/= null do
+			let project = (db "SELECT * FROM projects WHERE id = ?1" project-id) 0
+			
+			let member-is-in-project = not (empty? (db "
+				SELECT * FROM project_member_bindings WHERE project_id = ?1 AND user_id = ?2
+			" project-id (user :id)))
+			
+			let report-info = self :__get-project-report-info db project
+			let period = report-info :period
+			
+			let timestamp = invoke time
+			
+			if member-is-in-project and? (timestamp =>= (project :start_date)) and? (timestamp =<= (project :end_date)) and? (period =/= null) do
+				db "
+					INSERT OR IGNORE INTO reports
+						(user_id, project_id, period, content, time) 
+					VALUES 
+						(?1, ?2, ?3, ?4, ?5)
+				" (user :id) project-id period content timestamp
+				true
+			end else do
+				false
+			end
+		end else do
+			false
+		end
+	end
+	
 	# ---------- General, both user and admin related
 	
 	:__get-report function db report-id do
