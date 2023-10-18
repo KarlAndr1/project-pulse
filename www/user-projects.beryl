@@ -1,55 +1,48 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
 
-let user-auth = require "user-auth"
-let projects = require "projects"
+let db-interface = require "db-interface"
 let utils = require "utils"
 
-let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
-
-let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
-let req-type = assert (getenv "REQUEST_METHOD")
-
-let header = function do
+let handle-get = function user-projects do
 	cgi :headers do
-		invoke content-type-html
+		content-type "text/html"
 	end
-end
-
-let content = function db user-details user-projects do
+	
 	cgi :html do
 		template (require "header.html")
 		
 		body do
-			h 1 (user-details :name)
 			h 1 "Projects"
 
-			for-in user-projects with project do
-				let report-info = projects :get-project-report-info db project
-				let report = projects :get-report db (project :id) (user-details :id) (report-info :period)
+			for-in user-projects with project-entry do
+				let project = project-entry 0
+				let project-members = project-entry 1
+				let report-info = project-entry 2
+				let report = project-entry 3
 				
 				div do
 					h 3 (project :name)
 					p do
-						printf "Project ends at %0" (utils :format-time (project :end_date))
+						template "Project ends at %0" (utils :format-time (project :end_date))
 					end
 					if (report-info :period) =/= null do
 						p do
-							printf "Report %0 due at %1" (report-info :period) (utils :format-time (report-info :period-ends-at))
+							template "Report %0 due at %1" (report-info :period) (utils :format-time (report-info :period-ends-at))
 						end
 						p do
-							printf "%0 left" (utils :format-time-diff (report-info :time-left))
+							template "%0 left" (utils :format-time-diff (report-info :time-left))
 						end
 						p do
 							if report == null do
-								print-exactly "Report not submitted, "
+								template "Report not submitted, "
 								link "submit report" (cat "submit-report.beryl?project_id=" (project :id))
 							end else do
-								print-exactly "Report submitted"
+								template "Report submitted"
 								if (report :marked_read) == 1 do
-									print-exactly " (Read ✓)"
+									template " (Read ✓)"
 								end
-								print-exactly ", "
+								template ", "
 								link "view" (cat "view-report.beryl?report-id=" (report :id))
 							end
 						end
@@ -60,8 +53,7 @@ let content = function db user-details user-projects do
 					template "<details>"
 						template "<summary>Project members</summary>"
 						div do
-							let members = projects :get-project-members db (project :id)
-							for-in members with member do
+							for-in project-members with member do
 								p do
 									template "%0 (%1)" (member :name) (member :member_id)
 									if (member :email) =/= null do
@@ -80,24 +72,19 @@ let content = function db user-details user-projects do
 	end
 end
 
-let handle-get = function db user do
-	invoke header
-	
-	let user-details = assert ((db "SELECT id, member_id, name FROM users WHERE id = ?1" user) 0)
-	let user-projects = projects :get-user-projects db user
-	
-	content db user-details user-projects
-end
+let req-type = assert (getenv "REQUEST_METHOD")
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
 
 if req-type == "GET" do
-	let db = sql :open (cat server-data "/database")
-	let user = user-auth :auth-user db (cookies :user-login)
-	if user =/= null do
-		handle-get db user
+	let db = sql :open (db-interface :db-path)
+	let projects = db-interface :get-user-projects db (cookies :user-login)
+	sql :close db
+	
+	if projects =/= null do
+		handle-get projects
 	end else do
 		cgi :headers do
 			redirect "/auth-error.html"
 		end
 	end
-	sql :close db
 end

@@ -315,13 +315,42 @@ require-version 0
 		end
 	end
 	
-	# ---------- User actions
+	# ---------- User interfaces/actions
 	
 	:user-get-report function db user-token report-id do
 		let user = self :auth-user db user-token
 		let report = self :__get-report db report-id
 		if (user =/= null) and? ((report :report :user_id) == (user :id)) do
 			report
+		end else do
+			null
+		end
+	end
+	
+	:get-user-projects function db user-token do #Returns an array consisting of arrays like so (project project-members report-info report-for-this-period)
+		let user = self :auth-user db user-token
+		if user =/= null do
+			let projects = db "
+				SELECT 
+					p.id as id, p.name as name, p.report_frequency as report_frequency, p.start_date as start_date, p.end_date as end_date
+				FROM project_member_bindings as m
+				JOIN projects as p
+					ON p.id = m.project_id
+				WHERE
+					m.user_id = ?1 AND
+					p.start_date <= ?2 AND
+					p.end_date >= ?2
+			" (user :id) (invoke time)
+			
+			let projects-with-members = map projects with project do
+				let members = self :__get-project-members db (project :id)
+				let report-info = self :__get-project-report-info db project
+				let report = self :__get-report-for db (project :id) (report-info :period) (user :id)
+				
+				array project members report-info report
+			end
+			
+			projects-with-members
 		end else do
 			null
 		end
@@ -347,6 +376,12 @@ require-version 0
 		" (report :user_id) (report :project_id) (report :period)) 0
 		
 		struct :report report :project-name project-name :comments comments :prev-report-id (prev-report :id)
+	end
+	
+	:__get-report-for function db project-id period user-id do
+		(db "
+			SELECT id, time, content, marked_read FROM reports WHERE project_id = ?1 AND user_id = ?2 AND period = ?3
+		" project-id user-id period) 0
 	end
 	
 	:is-holiday function t do
