@@ -1,38 +1,36 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
 
-let admin-auth = require "admin-auth"
+let db-interface = require "db-interface"
+
+let redirect-to = null
+
+let handle-post = function db admin-token params do
+	let ok = null
+	if :mark-read in? params do
+		ok = db-interface "mark-report-read" db admin-token (params :report-id)
+	end elseif :post-comment in? params do
+		ok = db-interface "post-report-comment" db admin-token (params :report-id) (params :comment-content)
+	end
+	
+	if ok do
+		redirect-to = cat "/view-report.beryl?report-id=" (params :report-id)
+	end else do
+		redirect-to = "/auth-error.html"
+	end
+end
 
 let req-type = assert (getenv "REQUEST_METHOD")
 let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
 
-let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
-
-let handle-post = function db params do
-	if :mark-read in? params do
-		db "UPDATE reports SET marked_read = 1 WHERE id = ?1" (params :report-id)
-	end elseif :post-comment in? params do
-		db "
-			INSERT INTO report_comments 
-				(report_id, time, content) 
-			VALUES
-				(?1, ?2, ?3)
-		" (params :report-id) (invoke time) (params :comment-content)
-	end
-end
-
 if req-type == "POST" do
-	let db = sql :open (cat server-data "/database")
 	let params = cgi :parse-url-parameters (input read-all)
-	if (admin-auth :auth-admin db (cookies :admin-login)) do
-		handle-post db params
-		cgi :headers do
-			redirect (cat "view-report.beryl?report-id=" (params :report-id) "#comment-field")
-		end
-	end else do
-		cgi :headers do
-			redirect "auth-error.html"
-		end
-	end
+	
+	let db = sql :open (db-interface :db-path)
+	handle-post db (cookies :admin-login) params
 	sql :close db
+	
+	cgi :headers do
+		redirect (assert redirect-to)
+	end
 end

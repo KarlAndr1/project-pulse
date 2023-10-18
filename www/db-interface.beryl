@@ -270,6 +270,29 @@ require-version 0
 		end
 	end
 	
+	:mark-report-read function db admin-token report-id do
+		if (self :auth-admin db admin-token) do
+			db "UPDATE reports SET marked_read = 1 WHERE id = ?1" report-id
+			true
+		end else do
+			false
+		end
+	end
+	
+	:post-report-comment function db admin-token report-id comment do
+		if (self :auth-admin db admin-token) do
+			db "
+				INSERT INTO report_comments
+					(report_id, time, content)
+				VALUES
+					(?1, ?2, ?3)
+			" report-id (invoke time) comment
+			true
+		end else do
+			false
+		end
+	end
+	
 	# ---------- User actions
 	
 	:user-get-report function db user-token report-id do
