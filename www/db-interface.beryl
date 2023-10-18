@@ -5,7 +5,9 @@ require-version 0
 	:auth (require "auth")
 	:sql (require "~/sql")
 	:mail-template (require "mail-templates/mail-template")
+	
 	:update-password-mail-template (require "mail-templates/updated-password.template")
+	:added-to-project-mail-template (require "mail-templates/added-to-project.template")
 	
 	# ------- User auth
 	
@@ -191,6 +193,33 @@ require-version 0
 			end
 		end else do
 			array null "auth-error"
+		end
+	end
+	
+	:add-project-member function db admin-token project-id user-member-id do
+		if (self :auth-admin db admin-token) do
+			let user = (db "SELECT name, email, id FROM users WHERE member_id = ?1" user-member-id) 0
+			let project = (db "SELECT name FROM projects WHERE id = ?1" project-id) 0
+			if (user =/= null) and? (project =/= null) do
+				let template-params = struct :PROJECT_NAME (project :name) :USER_NAME (user :name)
+				let mail-content = self :mail-template (self :added-to-project-mail-template) template-params
+				try do
+					db "INSERT INTO project_member_bindings (user_id, project_id) VALUES (?1, ?2)" (user :id) project-id #Error if duplicate
+					db "
+						INSERT INTO email_queue 
+							(to_name, to_email, subject, content) 
+						VALUES 
+							(?1, ?2, 'New project', ?3)
+					" (user :name) (user :email) mail-content
+					null
+				end catch with err do
+					:duplicate-member
+				end
+			end else do
+				:invalid-id
+			end
+		end else do
+			:auth-error
 		end
 	end
 	

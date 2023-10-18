@@ -1,56 +1,38 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
 
-let projects = require "projects"
+let db-interface = require "db-interface"
 let mail-template = require "mail-templates/mail-template"
-
-let admin-auth = require "admin-auth"
-
-let req-type = assert (getenv "REQUEST_METHOD")
-let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
-
-let redirect-to = null
 
 let notification-email-template = require "mail-templates/added-to-project.template"
 
-let handle-post = function db do
+let handle-post = function db admin-token do
 	let data = cgi :parse-url-parameters (input read-all)
 	
-	let project-id = assert (data :project-id)
-	let user-id = ((db "SELECT id FROM users WHERE member_id = ?1" (data :new-user)) 0) :id
+	let project-id = parse-number (data :project-id) default: ""
 	
-	let project = projects :get-project db project-id
+	let err = db-interface :add-project-member db admin-token project-id (data :new-user)
 	
-	if (user-id =/= null) and? ((project :archived) == 0) do
-		try do
-			db "INSERT INTO project_member_bindings (user_id, project_id) VALUES (?1, ?2)" user-id project-id
-			
-			let mail = mail-template notification-email-template (struct
-				:PROJECT_NAME (project :name)
-			)
-			projects :send-email-notification db user-id "New project" mail
-			redirect-to = cat "/manage-project.beryl?id=" project-id "#new-user-field"
-		end catch with err do
-			redirect-to = cat "/manage-project.beryl?id=" project-id "&error=new-user-error-field:User+is+already+a+member,s:h#new-user-field"
+	cgi :headers do
+		if (err == null) or? (err == :archived-project) do
+			redirect (cat "/manage-project.beryl?id=" project-id "#new-user-field")
+		end elseif err == :invalid-id do
+			redirect (cat "/manage-project.beryl?id=" project-id "&error=new-user-error-field:Invalid+ID,s:h#new-user-field")
+		end elseif err == :duplicate-member do
+			redirect (cat "/manage-project.beryl?id=" project-id "&error=new-user-error-field:User+is+already+a+member,s:h#new-user-field")
+		end elseif err == :auth-error do
+			redirect "/auth-error.html"
 		end
-	end else do
-		redirect-to = cat "/manage-project.beryl?id=" project-id "&error=new-user-error-field:Invalid+ID,s:h#new-user-field"
 	end
 end
+
+let req-type = assert (getenv "REQUEST_METHOD")
 
 if req-type == "POST" do
 	let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
-	let admin-login = cookies :admin-login
+	let admin-token = cookies :admin-login
 
-	let db = sql :open (cat server-data "/database")
-	if (admin-auth :auth-admin db admin-login) do
-		handle-post db
-	end else do
-		redirect-to = "/auth-error.html"
-	end
+	let db = sql :open (db-interface :db-path)
+	handle-post db admin-token
 	sql :close db
-end
-
-cgi :headers do
-	redirect redirect-to
 end
