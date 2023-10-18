@@ -1,40 +1,33 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
 
-let user-auth = require "user-auth"
+let db-interface = require "db-interface"
 
-let req-type = assert (getenv "REQUEST_METHOD")
-
-let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
-
-let redirect-to = "user-login.html?error=login-error:Invalid+ID+or+password,s:h"
 let auth-token-cookie = null
 
 
-let handle-post = function do
+let handle-post = function db do
 	let in = cgi :parse-url-parameters (input read-all)
-	let member_id = assert (in :member_id)
-	let password = assert (in :password)
+	let member_id = (in :member_id) default: ""
+	let password = (in :password) default: ""
 	
-	let db = sql :open (cat server-data "/database")
-	
-	let token = user-auth :login-user sql db member_id password
-	if token =/= null do
-		redirect-to = "/"
-		auth-token-cookie = token
-	end
-	sql :close db
-end
-
-
-if req-type == "POST" do
-	invoke handle-post
+	let token = db-interface :login-user sql db member_id password
 	cgi :headers do
-		redirect redirect-to
-		if auth-token-cookie =/= null do
-			set-cookie "user-login" auth-token-cookie "Secure" "HttpOnly"
+		if token == null do
+			redirect "user-login.html?error=login-error:Invalid+ID+or+password,s:h"
+		end else do
+			redirect "/"
+			set-cookie "user-login" token "Secure" "HttpOnly"
 		end
 	end
+end
+
+let req-type = assert (getenv "REQUEST_METHOD")
+
+if req-type == "POST" do
+	let db = sql :open (db-interface :db-path)
+	handle-post db
+	sql :close db
 end else do
 	print-exactly "Status: 405" carriage-return newline #"
 	cgi :headers do
