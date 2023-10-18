@@ -195,7 +195,7 @@ require-version 0
 			" (invoke time) project-id) 0
 			let project-report-details = self :__get-project-report-info db project
 			let project-members = self :__get-project-members db project-id
-			let report-count = sizeof (self :__get-reports db project-id (project-report-details :period) null)
+			let report-count = sizeof (self :get-project-reports db admin-token project-id (project-report-details :period) null)
 			
 			struct :project project :report-info project-report-details :members project-members :report-count report-count
 		end else do
@@ -211,28 +211,58 @@ require-version 0
 		end
 	end
 	
-	# ---------- General, both user and admin related
-	
-	:__get-reports function db project-id period marked-read do #Marked read can be either 0, 1, or null (i.e both)
-		db "
-			SELECT 
-				r.id as id, 
-				r.content as content, 
-				r.time as time, 
-				u.name as name, 
-				u.member_id as member_id, 
-				u.email as email, 
-				u.phone_number as phone_number,
-				r.marked_read as marked_read
-			FROM reports as r
-			JOIN users as u
-				ON u.id = r.user_id
-			WHERE
-				r.project_id = ?1 AND r.period = ?2 AND
-				(r.marked_read = ?3 OR ?3 IS NULL)
-			ORDER BY r.time DESC
-		" project-id period marked-read
+	:get-project-reports function db admin-token project-id period marked-read do #Marked read can be either 0, 1, or null (i.e both)
+		if (self :auth-admin db admin-token) do
+			db "
+				SELECT 
+					r.id as id, 
+					r.content as content, 
+					r.time as time, 
+					u.name as name, 
+					u.member_id as member_id, 
+					u.email as email, 
+					u.phone_number as phone_number,
+					r.marked_read as marked_read
+				FROM reports as r
+				JOIN users as u
+					ON u.id = r.user_id
+				WHERE
+					r.project_id = ?1 AND r.period = ?2 AND
+					(r.marked_read = ?3 OR ?3 IS NULL)
+				ORDER BY r.time DESC
+			" project-id period marked-read
+		end else do
+			null
+		end
 	end
+	
+	:get-members-without-reports function db admin-token project-id period do
+		if (self :auth-admin db admin-token) do
+			# https://stackoverflow.com/questions/1247361/get-the-inverse-of-a-join
+			let members-without-reports = db "
+				SELECT * FROM (
+					SELECT
+						u.name, u.member_id, u.email, u.phone_number, r.id as rid
+					FROM users as u
+					JOIN project_member_bindings as m
+					ON
+						m.user_id = u.id AND
+						m.project_id = ?1
+					LEFT JOIN reports as r
+					ON
+						r.user_id = u.id AND
+						r.period = ?2 AND
+						r.project_id = ?1
+				)
+				WHERE
+					rid is NULL
+			" project-id period
+		end else do
+			null
+		end
+	end
+	
+	# ---------- General, both user and admin related
 	
 	:is-holiday function t do
 		let ts = convert-time t

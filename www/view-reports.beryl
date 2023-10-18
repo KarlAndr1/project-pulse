@@ -1,41 +1,14 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
 
-let admin-auth = require "admin-auth"
-let projects = require "projects"
+let db-interface = require "db-interface"
 let utils = require "utils"
 
-let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
-
-let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
-let req-type = assert (getenv "REQUEST_METHOD")
-let params = cgi :parse-url-parameters (getenv "QUERY_STRING")
-
-let display-content = function db project-id period do
-	let unread-reports = projects :get-reports db project-id period 0
-	let read-reports = projects :get-reports db project-id period 1
+let handle-get = function project-id period read-reports unread-reports project members-without-reports do
 	
-	let project = (db "SELECT name, report_frequency, start_date, end_date FROM projects WHERE id = ?1" project-id) 0
-	
-	# https://stackoverflow.com/questions/1247361/get-the-inverse-of-a-join
-	let members-without-reports = db "
-		SELECT * FROM (
-			SELECT
-				u.name, u.member_id, u.email, u.phone_number, r.id as rid
-			FROM users as u
-			JOIN project_member_bindings as m
-			ON
-				m.user_id = u.id AND
-				m.project_id = ?1
-			LEFT JOIN reports as r
-			ON
-				r.user_id = u.id AND
-				r.period = ?2 AND
-				r.project_id = ?1
-		)
-		WHERE
-			rid is NULL
-	" project-id period
+	cgi :headers do
+		content-type "text/html"
+	end
 	
 	cgi :html do
 		template (require "header.html")
@@ -46,10 +19,10 @@ let display-content = function db project-id period do
 			
 			p do
 				if period =/= "1" do
-					link "Previous period" (cat "view-reports.beryl?pid=" project-id "&period=" ((parse-number period) - 1))
+					link "Previous period" (cat "view-reports.beryl?pid=" project-id "&period=" (period - 1))
 					print-exactly " | "
 				end
-				link "Next period" (cat "view-reports.beryl?pid=" project-id "&period=" ((parse-number period) + 1))
+				link "Next period" (cat "view-reports.beryl?pid=" project-id "&period=" (period + 1))
 			end
 			
 			p do
@@ -102,18 +75,30 @@ let display-content = function db project-id period do
 	end
 end
 
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+let req-type = assert (getenv "REQUEST_METHOD")
+let params = cgi :parse-url-parameters (getenv "QUERY_STRING")
+
 if req-type == "GET" do
-	let admin-login = cookies :admin-login
-	let db = sql :open (cat server-data "/database")
-	if (admin-auth :auth-admin db admin-login) do
-		cgi :headers do
-			invoke content-type-html
-		end
-		display-content db (params :pid) default: 0 (params :period) default: 0
+	let project-id = parse-number (params :pid) default: ""
+	let period = parse-number (params :period) default: ""
+	let admin-token = cookies :admin-login
+	
+	let db = sql :open (db-interface :db-path)
+	let read-reports = db-interface :get-project-reports db admin-token project-id period 1
+	let unread-reports = db-interface :get-project-reports db admin-token project-id period 0
+	let project = db-interface :get-project-details db admin-token project-id
+	let members-without-reports = db-interface :get-members-without-reports db admin-token project-id period 
+	sql :close db
+	
+	if read-reports =/= null do
+		assert unread-reports
+		assert project
+		assert members-without-reports
+		handle-get project-id period read-reports unread-reports (project :project) members-without-reports
 	end else do
 		cgi :headers do
 			redirect "/auth-error.html"
 		end
 	end
-	sql :close db
 end
