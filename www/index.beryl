@@ -1,18 +1,21 @@
 let cgi = require "~/cgi"
+let sql = require "~/sql"
 
-let handle-get = function do
+let db-interface = require "db-interface"
+
+let handle-get = function user is-admin do
 	cgi :headers do
 		invoke content-type-html
 	end
 
 	cgi :html do
 		
-		print-exactly (require "header.html")
+		template (require "header.html")
 		
 		h 1 "Project Pulse"
 		
 		div do
-			if :admin-login in? cookies do # Really easy to cheat, but all the other POST requests check for a *valid* admin-login cookie
+			if is-admin do
 				p "Logged in as administrator"
 				p do
 					link "Add users" "add-users.html"
@@ -23,8 +26,8 @@ let handle-get = function do
 					print-exactly " | "
 					link "Log out" "admin-logout.html"
 				end
-			end elseif :user-login in? cookies do
-				p "Logged in as user"
+			end elseif user =/= null do
+				template "<p>Logged in as %0</p>" (user :name)
 				p do
 					link "View projects" "user-projects.beryl"
 					print-exactly " | "
@@ -43,5 +46,10 @@ let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
 let req-type = assert (getenv "REQUEST_METHOD")
 
 if req-type == "GET" do
-	invoke handle-get
+	let db = sql :open (db-interface :db-path)
+	let user = db-interface :auth-user db (cookies :user-login)
+	let is-admin = db-interface :auth-admin db (cookies :admin-login)
+	sql :close db
+	
+	handle-get user is-admin
 end

@@ -1,15 +1,12 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
-let argon2 = require "~/argon2"
 
 let req-type = assert (getenv "REQUEST_METHOD")
 let http-header-lbrk = cat carriage-return newline
 
-let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
-
 let redirect-to = "/add-users.html"
 
-let admin-auth = require "admin-auth"
+let db-interface = require "db-interface"
 
 let parse-csv = function csv do
 	let lines = split (strip csv) newline
@@ -21,11 +18,8 @@ let parse-csv = function csv do
 	lines
 end
 
-let log = function ... msg do
-	append (cat server-data "/log.txt") (cat (invoke time) ":" (apply cat msg) newline)
-end
 
-let handle-post = function do
+let handle-post = function db admin-login do
 	let post-data = input read-all # Read everything from stdin
 	let lines = split post-data http-header-lbrk
 	
@@ -37,43 +31,22 @@ let handle-post = function do
 	let content = slice lines headers-end + 1 body-end
 	content = content join-with: newline
 	
-	write (cat server-data "/test-data.csv") content
-	redirect-to = "/"
-	
 	let data = parse-csv content
 	
-	log "Recieved " (sizeof data) " users"
-	
-	let db = sql :open (cat server-data "/database")
-	for-in data with row do
-		let id = row 0
-		let name = row 1
-		let mail = row 2
-		let phone = row 3
-		
-		if mail == "" do
-			mail = null
-		end
-		if phone == "" do
-			phone = null
-		end
-		
-		db "INSERT OR IGNORE INTO users (member_id, name, email, phone_number, encoded_password) VALUES (?1, ?2, ?3, ?4, NULL)" id name mail phone
+	let ok = db-interface :add-users db admin-login data
+	if ok do
+		redirect-to = "/view-users.beryl"
+	end else do
+		redirect-to = "/auth-error.html"
 	end
-	
-	sql :close db # Not strictly needed as refcounting will clean close this when the function exits anyway
 end
 
 if req-type == "POST" do
 	let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
 	let admin-login = cookies :admin-login
 
-	let db = sql :open (cat server-data "/database")
-	if (admin-auth :auth-admin db admin-login) do
-		invoke handle-post
-	end else do
-		redirect-to = "/auth-error.html"
-	end
+	let db = sql :open (db-interface :db-path)
+	handle-post db admin-login
 	sql :close db
 end
 
