@@ -175,5 +175,18 @@ require-version 0
 		end
 	end
 	
+	:get-all-projects function db admin-token do
+		if (self :auth-admin db admin-token) do
+			db "
+				SELECT 
+					id, name, report_frequency, start_date, end_date, (?1 > end_date) as archived 
+				FROM projects 
+				ORDER BY archived 
+			" (invoke time)
+		end else do
+			null
+		end
+	end
+	
 	:db-path (cat (getenv "LIGHTTPD_DATA_PATH") "/database")
 )
