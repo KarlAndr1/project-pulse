@@ -11,7 +11,7 @@ let handle-post = function db do
 	let member_id = (in :member_id) default: ""
 	let password = (in :password) default: ""
 	
-	let token = db-interface :login-user sql db member_id password
+	let token = db-interface :login-user db member_id password
 	cgi :headers do
 		if token == null do
 			redirect "user-login.html?error=login-error:Invalid+ID+or+password,s:h"

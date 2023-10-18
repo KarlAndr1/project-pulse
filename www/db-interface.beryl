@@ -8,7 +8,7 @@ require-version 0
 	# ------- User auth
 	
 	# Create a new token for this user
-	:login-user function sql db member_id pass do
+	:login-user function db member_id pass do
 		let user = (db "SELECT id, encoded_password FROM users WHERE member_id = ?1" member_id) 0
 		if (user =/= null) and? ((user :encoded_password) =/= null) do
 			let correct = (self :argon2) :verify (user :encoded_password) pass
@@ -24,7 +24,7 @@ require-version 0
 						(?1, ?2)
 				" (user :id) encoded_token
 				
-				let login-id = sql :get-last-insert-rowid db
+				let login-id = self :sql :get-last-insert-rowid db
 				
 				cat login-id ":" plain-token
 			end

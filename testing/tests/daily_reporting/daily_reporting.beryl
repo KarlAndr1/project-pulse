@@ -1,6 +1,6 @@
 let sql = require "~/sql"
 
-let projects = require (getenv "www") cat: "/projects"
+let db-interface = require (getenv "www") cat: "/db-interface"
 
 invoke do
 	let start-date = parse-number (getenv "START_DATE")
@@ -13,52 +13,52 @@ invoke do
 		fixed-time
 	end
 	
-	let db = sql :open (getenv "LIGHTTPD_DATA_PATH") cat: "/database"
+	let db = sql :open (db-interface :db-path)
 	
 	let project = (db "SELECT * FROM projects") 0
 	assert (project :name) == "test-project"
 	
 	fixed-time = start-date
-	let r = projects :get-project-report-info db project
+	let r = db-interface :__get-project-report-info db project
 	assert (r :period) == 1
 	assert (r :period-ends-at) == (start-date + a-day)
 	
 	fixed-time += 60 * 60 * 24 # 00:00:00 on friday, still period 1
-	r = projects :get-project-report-info db project
+	r = db-interface :__get-project-report-info db project
 	assert (r :period) == 1
 	assert (r :period-ends-at) == (start-date + a-day)
 	
 	fixed-time += 1 # 00:00:01 on friday
-	r = projects :get-project-report-info db project
+	r = db-interface :__get-project-report-info db project
 	assert (r :period) == 2
 	assert (r :period-ends-at) == (start-date + (a-day * 2))
 	
 	fixed-time += 60 * 60 * 24 # 00:00:01 on saturday
-	r = projects :get-project-report-info db project
+	r = db-interface :__get-project-report-info db project
 	assert (r :period) == 3
 	assert (r :period-ends-at) == (start-date + (a-day * 5)) # The report shouldn't be due until tuesday 00:00:00, since there's no report until monday
 	assert (r :time-left) == ((a-day * 3) - 1)
 	
 	fixed-time += 60 * 60 * 24 # 00:00:01 on sunday
-	r = projects :get-project-report-info db project
+	r = db-interface :__get-project-report-info db project
 	assert (r :period) == 3
 	assert (r :period-ends-at) == (start-date + (a-day * 5)) 
 	assert (r :time-left) == ((a-day * 2) - 1)
 	
 	fixed-time += 60 * 60 * 24 # 00:00:01 on monday
-	r = projects :get-project-report-info db project
+	r = db-interface :__get-project-report-info db project
 	assert (r :period) == 3
 	assert (r :period-ends-at) == (start-date + (a-day * 5))
 	assert (r :time-left) == (a-day - 1)
 	
 	fixed-time += 60 * 60 * 24
-	r = projects :get-project-report-info db project
+	r = db-interface :__get-project-report-info db project
 	assert (r :period) == 4
 	assert (r :period-ends-at) == (start-date + (a-day * 6)) # Wednesday 00:00:00
 	assert (r :time-left) == (a-day - 1)
 	
 	fixed-time += 60 * 60 * 12
-	r = projects :get-project-report-info db project
+	r = db-interface :__get-project-report-info db project
 	assert (r :period) == 4
 	assert (r :time-left) == ((a-day / 2) - 1)
 	assert (r :period-ends-at) == (start-date + (a-day * 6))

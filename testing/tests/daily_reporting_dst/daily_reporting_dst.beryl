@@ -1,6 +1,6 @@
 let sql = require "~/sql"
 
-let projects = require (getenv "www") cat: "/projects"
+let db-interface = require (getenv "www") cat: "/db-interface"
 
 let is-midnight = function t do
 	(and? 
@@ -21,19 +21,19 @@ invoke do
 		fixed-time
 	end
 	
-	let db = sql :open (getenv "LIGHTTPD_DATA_PATH") cat: "/database"
+	let db = sql :open (db-interface :db-path)
 	
 	let project = (db "SELECT * FROM projects") 0
 	assert (project :name) == "test-project"
 	
 	fixed-time = start-date # The start date is 00:00:00 27th October, a firday
-	let r = projects :get-project-report-info db project
+	let r = db-interface :__get-project-report-info db project
 	assert (r :period) == 1
 	assert (r :period-ends-at) == (start-date + a-day) # 00:00:00 on October the 28th, a saturday.
 	assert (r :time-left) == a-day
 	
 	fixed-time = start-date + a-day + 1 # 00:00:01 28th October
-	r = projects :get-project-report-info db project
+	r = db-interface :__get-project-report-info db project
 	assert (r :period) == 2
 	assert (r :period-ends-at) == (start-date + (a-day * 4) + (60 * 60)) #Due to daylight savings ending, it will be exactly 4 'days' + 1 hour
 	# I.e the entirety of saturday, sunday, and monday, plus one hour due to the clocks being turned back
@@ -46,7 +46,7 @@ invoke do
 	assert (end-time :daylight-savings) == false #Not really testing the system as much as just making sure the test environment is correct
 	
 	fixed-time =  (r :period-ends-at) + 1
-	r = projects :get-project-report-info db project
+	r = db-interface :__get-project-report-info db project
 	assert (r :period) == 3
 	assert (r :period-ends-at) == (start-date + (a-day * 5) + (60 * 60))
 	assert (r :time-left) == (a-day - 1)
