@@ -1,11 +1,9 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
 
-let admin-auth = require "admin-auth"
+let db-interface = require "db-interface"
 
 let req-type = assert (getenv "REQUEST_METHOD")
-
-let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
 
 cgi :headers do
 	redirect "/"
@@ -15,8 +13,8 @@ end
 if req-type == "POST" do
 	let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
 	
-	let db = sql :open (cat server-data "/database")
-	admin-auth :logout-admin db (cookies :admin-login)
+	let db = sql :open (db-interface :db-path)
+	db-interface :logout-admin db (cookies :admin-login)
 	sql :close db	
 end
 
