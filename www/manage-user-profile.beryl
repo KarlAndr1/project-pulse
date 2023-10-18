@@ -1,11 +1,8 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
 
-let user-auth = require "user-auth"
-let projects = require "projects"
+let db-interface = require "db-interface"
 let utils = require "utils"
-
-let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
 
 let min-password-length = 8
 
@@ -52,42 +49,46 @@ let handle-get = function user do
 	end
 end
 
-let handle-post = function db user-id params do
+let handle-post = function db user-token params do
 	let redirect-to = null
+	
 	if ((params :new-password-1) == (params :new-password-2)) and? ((sizeof (params :new-password-1)) =>= min-password-length) do
-		let correct = user-auth :update-password db user-id (params :old-password) (params :new-password-1)
-		if correct do
-			redirect-to = "./"
-			projects :send-email-notification db user-id "Password updated" (require "mail-templates/updated-password.template")
-		end else do
-			redirect-to = "manage-user-profile.beryl?error=old-password-field-error:Invalid+password,old-password-field:s"
+		let err = db-interface :update-user-password db user-token (params :old-password) (params :new-password-1)
+		
+		cgi :headers do
+			if err == null do
+				redirect "manage-user-profile.beryl"
+			end elseif err == :auth-error do
+				redirect "/auth-error.html"
+			end elseif err == :wrong-password do
+				redirect "manage-user-profile.beryl?error=old-password-field-error:Invalid+password,s:h"
+			end
 		end
 	end else do
-		redirect-to "manage-user-profile.beryl"
-	end
-	
-	cgi :headers do
-		redirect (assert redirect-to)
+		cgi :headers do
+			redirect "manage-user-profile.beryl"
+		end
 	end
 end
 
 let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
 let req-type = assert (getenv "REQUEST_METHOD")
 
-let db = sql :open (cat server-data "/database")
-let user-id = user-auth :auth-user db (cookies :user-login)
-let user = (db "SELECT member_id, name, email, phone_number, encoded_password FROM users WHERE id = ?1" user-id) 0
-
-if user-id == null do
-	cgi :headers do
-		redirect "auth-error.html"
+if req-type == "GET" do
+	let db = sql :open (db-interface :db-path)
+	let user-details = db-interface :get-user-details db (cookies :user-login)
+	sql :close db
+	
+	if user-details =/= null do
+		handle-get user-details
+	end else do
+		cgi :headers do
+			redirect "/auth-error.html"
+		end
 	end
-end else do
-	if req-type == "GET" do
-		sql :close db
-		handle-get user
-	end elseif req-type == "POST" do
-		let params = cgi :parse-url-parameters (input read-all)
-		handle-post db user-id params
-	end
+end elseif req-type == "POST" do
+	let db = sql :open (db-interface :db-path)
+	let params = cgi :parse-url-parameters (input read-all)
+	handle-post db (cookies :user-login) params
+	sql :close db
 end

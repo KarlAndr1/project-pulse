@@ -90,7 +90,7 @@ CREATE TABLE email_queue ( -- SHOULD ONLY BE USED TO STORE NON-CONFIDENTIAL EMAI
 	id INTEGER PRIMARY KEY,
 	
 	to_name TEXT NOT NULL,
-	to_email TEXT NOT NULL,
+	to_email TEXT,
 	subject TEXT NOT NULL,
 	content TEXT NOT NULL
 );

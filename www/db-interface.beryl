@@ -4,6 +4,8 @@ require-version 0
 	:argon2 (require "~/argon2")
 	:auth (require "auth")
 	:sql (require "~/sql")
+	:mail-template (require "mail-templates/mail-template")
+	:update-password-mail-template (require "mail-templates/updated-password.template")
 	
 	# ------- User auth
 	
@@ -71,13 +73,30 @@ require-version 0
 		end
 	end
 	
-	:update-user-password function db user-id old-password new-password do
-		if (self :verify-user-password db user-id old-password) do
-			let encoded-pass = (self :auth) :encode-password new-password
-			db "UPDATE users SET encoded_password = ?1 WHERE id = ?2" encoded-pass user-id
-			true
+	:update-user-password function db user-token old-password new-password do
+		let user = self :auth-user db user-token
+		if user =/= null do
+			if (self :verify-user-password db (user :id) old-password) do
+				let mail-content = self :mail-template (self :update-password-mail-template) (struct :USER_NAME (user :name))
+				
+				let encoded-pass = (self :auth) :encode-password new-password
+				
+				db "BEGIN TRANSACTION"
+				db "UPDATE users SET encoded_password = ?1 WHERE id = ?2" encoded-pass (user :id)
+				db "
+					INSERT INTO email_queue 
+						(to_name, to_email, subject, content) 
+					VALUES 
+						(?1, ?2, 'Password updated', ?3)
+				" (user :name) (user :email) mail-content
+				db "COMMIT"
+				
+				null
+			end else do
+				:wrong-password
+			end
 		end else do
-			false
+			:auth-error
 		end
 	end
 	
@@ -385,6 +404,10 @@ require-version 0
 		end else do
 			false
 		end
+	end
+	
+	:get-user-details function db user-token do
+		self :auth-user db user-token
 	end
 	
 	# ---------- General, both user and admin related

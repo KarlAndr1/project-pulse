@@ -88,7 +88,9 @@ end
 let email-queue = db "SELECT id, to_name, to_email, subject, content FROM email_queue"
 
 for-in email-queue with due-email do
-	mail (due-email :to_email) (due-email :to_name) (due-email :subject) (due-email :content)
+	if (due-email :to_email) =/= null do
+		mail (due-email :to_email) (due-email :to_name) (due-email :subject) (due-email :content)
+	end
 	db "DELETE FROM email_queue WHERE id = ?1" (due-email :id)
 end
 
