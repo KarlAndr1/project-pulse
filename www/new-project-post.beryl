@@ -1,13 +1,13 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
 
-let admin-auth = require "admin-auth"
+let db-interface = require "db-interface"
 let utils = require "utils"
 
 let req-type = assert (getenv "REQUEST_METHOD")
 let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
 
-let redirect-to = null
+let redirect-to = "/new-project.html"
 
 let freq-to-time = function freq-word do
 	(struct
@@ -20,7 +20,7 @@ let freq-to-time = function freq-word do
 	) freq-word
 end
 
-let handle-post = function db do
+let handle-post = function db admin-token do
 	let data = cgi :parse-url-parameters (input read-all)
 	
 	let name = assert (data :project-name)
@@ -31,32 +31,28 @@ let handle-post = function db do
 	let start-date = utils :parse-date (data :start-date)
 	let end-date = utils :parse-date (data :end-date)
 	
-	let current-time = invoke time
+	let res = db-interface :create-new-project db admin-token name freq-time start-date end-date
+	let new-project-id = res 0
+	let err = res 1
 	
-	if (start-date =<= end-date) and? (end-date =>= current-time) do
-		db "INSERT INTO projects (name, report_frequency, start_date, end_date) VALUES (?1, ?2, ?3, ?4)" name freq-time start-date end-date
-		let new-project-id = sql :get-last-insert-rowid db
-		
-		if freq-time == null do
+	if err == "auth-error" do
+		redirect-to = "/auth-error.html"
+	end elseif err == null do
+		if freq == "manual" do
 			redirect-to = cat "/add-project-dates.beryl?id=" new-project-id
 		end else do
 			redirect-to = cat "/manage-project.beryl?id=" new-project-id
 		end
-	end else do
+	end elseif err == "invalid-dates" do
 		redirect-to = "/new-project.html"
 	end
 end
 
 if req-type == "POST" do
 	let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
-	let admin-login = cookies :admin-login
 
 	let db = sql :open (cat server-data "/database")
-	if (admin-auth :auth-admin db admin-login) do
-		handle-post db
-	end else do
-		redirect-to = "/auth-error.html"
-	end
+	handle-post db (cookies :admin-login)
 	sql :close db
 end
 

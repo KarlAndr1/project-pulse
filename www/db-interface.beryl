@@ -3,6 +3,7 @@ require-version 0
 (struct
 	:argon2 (require "~/argon2")
 	:auth (require "auth")
+	:sql (require "~/sql")
 	
 	# ------- User auth
 	
@@ -150,6 +151,27 @@ require-version 0
 			true
 		end else do
 			false
+		end
+	end
+	
+	:create-new-project function db admin-token name freq-time start-date end-date do
+		let current-time = invoke time
+		if (self :auth-admin db admin-token) do
+			if (start-date =<= end-date) and? (end-date =>= current-time) do
+				db "
+					INSERT INTO projects
+						(name, report_frequency, start_date, end_date)
+					VALUES
+						(?1, ?2, ?3, ?4)
+				" name freq-time start-date end-date
+				
+				let project-id = sql :get-last-insert-rowid db
+				array project-id null
+			end else do
+				array null "invalid-dates"
+			end
+		end else do
+			array null "auth-error"
 		end
 	end
 	

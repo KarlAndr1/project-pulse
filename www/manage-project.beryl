@@ -46,7 +46,7 @@ let handle-get = function db project-id do
 					
 					if period =/= null do
 						p do
-							template "Next due date: %0 (Report %0)" (utils :format-time next-period-at) period
+							template "Next due date: %0 (Report %1)" (utils :format-time next-period-at) period
 						end
 						p do
 							template "Time left: %0" (utils :format-time-diff time-remaining)
