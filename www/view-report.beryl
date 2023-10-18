@@ -1,40 +1,23 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
 
-let user-auth = require "user-auth"
-let admin-auth = require "admin-auth"
-let projects = require "projects"
+let db-interface = require "db-interface"
 let utils = require "utils"
 
-let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
-
-let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
-let req-type = assert (getenv "REQUEST_METHOD")
-
-let handle-get = function db report admin do
-	let project = (db "SELECT name FROM projects WHERE id = ?1" (report :project_id)) 0
-	let comments = projects :get-report-comments db (report :id)
-	
-	let prev-reports = db "
-		SELECT 
-			id, period 
-		FROM reports 
-		WHERE 
-			user_id = ?1 AND 
-			project_id = ?2 AND
-			period < ?3
-		ORDER BY period DESC" (report :user_id) (report :project_id) (report :period)
+let handle-get = function project-name report comments prev-report-id is-admin do
+	cgi :headers do
+		content-type "text/html"
+	end
 	
 	cgi :html do
 		template (require "header.html")
-		h 1 (cat "Report for project " (cgi :sanitize-html (project :name)) ", period " (report :period))
-		if (not (empty? prev-reports)) do
-			let prev-report = prev-reports 0
-			link "Previous report" (cat "./view-report.beryl?report_id=" (prev-report :id))
+		h 1 (cat "Report for " project-name ", period " (report :period))
+		if prev-report-id =/= null do
+			link "Previous report" (cat "./view-report.beryl?report-id=" prev-report-id)
 		end
 		
 		div do
-			if admin do
+			if is-admin do
 				link "➥Back" (cat "view-reports.beryl?pid=" (report :project_id) "&period=" (report :period) "#report-" (report :id))
 			end
 			
@@ -46,7 +29,7 @@ let handle-get = function db report admin do
 			end
 			template "<div>%0</div>" (report :content)
 			
-			if admin do
+			if is-admin do
 				form "post-report-comment.beryl" "post" do
 					template "<input type='hidden' name='report-id' value='%0'>" (report :id)
 					
@@ -76,26 +59,36 @@ let handle-get = function db report admin do
 	end
 end
 
-let db = sql :open (cat server-data "/database")
-let user = user-auth :auth-user db (cookies :user-login)
-let admin = admin-auth :auth-admin db (cookies :admin-login)
+let req-type = assert (getenv "REQUEST_METHOD")
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
 
 if req-type == "GET" do
 	let params = cgi :parse-url-parameters (getenv "QUERY_STRING")
-	let report = (db "SELECT id, user_id, project_id, period, time, content, marked_read FROM reports WHERE id = ?1" (params :report-id)) 0
-	if ((user =/= null) and? ((report :user_id) == user)) or? admin do
-		cgi :headers do
-			invoke content-type-html
+	let report-id = parse-number (params :report-id) default: ""
+	
+	let user-token = cookies :user-login
+	let admin-token = cookies :admin-login
+	
+	let is-admin = false
+	let report = null
+	
+	let db = sql :open (db-interface :db-path)
+	if admin-token =/= null do
+		report = db-interface :admin-get-report db admin-token report-id
+		if report =/= null do
+			is-admin = true
 		end
-		handle-get db report admin
+	end else do
+		report = db-interface :user-get-report db user-token report-id
+	end
+	sql :close db
+	
+	if report =/= null do
+		handle-get (report :project-name) (report :report) (report :comments) (report :prev-report-id) is-admin
 	end else do
 		cgi :headers do
 			redirect "/auth-error.html"
 		end
 	end
-	
-end elseif req-type == "POST" do
-
 end
 
-sql :close db

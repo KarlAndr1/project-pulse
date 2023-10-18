@@ -108,7 +108,7 @@ for-in all-projects with project do
 				db "UPDATE projects SET sent_notifications_count = ?1" period
 				for-in project-members with member do
 					let submitted-report = projects :get-report db (project :id) (member :id) period
-					if submitted-report == null do
+					if (submitted-report == null) and? ((member :email) =/= null) do
 						let mail-content = mail-template deadline-email-template (struct
 							:PROJECT (project :name)
 							:TIME_LEFT (utils :format-time-diff (reporting-details :time-left))

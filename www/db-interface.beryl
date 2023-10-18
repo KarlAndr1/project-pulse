@@ -262,7 +262,47 @@ require-version 0
 		end
 	end
 	
+	:admin-get-report function db admin-token report-id do
+		if (self :auth-admin db admin-token) do
+			self :__get-report db report-id
+		end else do
+			null
+		end
+	end
+	
+	# ---------- User actions
+	
+	:user-get-report function db user-token report-id do
+		let user = self :auth-user db user-token
+		let report = self :__get-report db report-id
+		if (user =/= null) and? ((report :report :user_id) == (user :id)) do
+			report
+		end else do
+			null
+		end
+	end
+	
 	# ---------- General, both user and admin related
+	
+	:__get-report function db report-id do
+		let report = (db "SELECT id, time, period, content, marked_read, project_id, user_id FROM reports WHERE id = ?1" report-id) 0
+		let project-name = ((db "SELECT name FROM projects WHERE id = ?1" (report :project_id)) 0) :name
+		let comments = db "SELECT content, time FROM report_comments WHERE report_id = ?1 ORDER BY time DESC" report-id
+		
+		let prev-report = (db "
+			SELECT 
+				id
+			FROM reports
+			WHERE 
+				user_id = ?1 AND
+				project_id = ?2 AND
+				period < ?3
+			ORDER BY period DESC
+			LIMIT 1
+		" (report :user_id) (report :project_id) (report :period)) 0
+		
+		struct :report report :project-name project-name :comments comments :prev-report-id (prev-report :id)
+	end
 	
 	:is-holiday function t do
 		let ts = convert-time t
