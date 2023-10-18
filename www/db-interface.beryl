@@ -293,6 +293,28 @@ require-version 0
 		end
 	end
 	
+	:set-project-report-dates function db admin-token project-id dates do
+		if (self :auth-admin db admin-token) do
+			let members = self :__get-project-members db project-id
+			let project = (self :get-project-details db admin-token project-id) :project
+			let start-date = project :start_date
+			let end-date = project :end_date
+			
+			if ((sizeof members) == 0) and? ((project :report-frequency) == null) and? ((project :archived) == 0) do
+				db "DELETE FROM project_report_dates WHERE project_id = ?1" project-id
+				for-in dates with date do
+					if (date =>= start-date) and? (date =<= end-date) do
+						db "INSERT OR IGNORE INTO project_report_dates (project_id, _date) VALUES (?1, ?2)" project-id date
+					end
+				end
+			end
+			
+			true
+		end else do
+			false
+		end
+	end
+	
 	# ---------- User actions
 	
 	:user-get-report function db user-token report-id do

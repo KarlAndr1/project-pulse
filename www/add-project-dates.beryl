@@ -1,57 +1,53 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
 
-let admin-auth = require "admin-auth"
-
-let projects = require "projects"
+let db-interface = require "db-interface"
 let utils = require "utils"
 
-let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
-
-
-let handle-get = function db project-id do
-	let project = projects :get-project db project-id
+let handle-get = function project-id project do
+	cgi :headers do
+		content-type "text/html"
+	end
 	
 	cgi :html do
-		print-exactly (require "header.html")
-		printf "<script src=%0/scripts/add-project-dates.js%0></script>" quote
-		
+		template (require "header.html")
+		template "<script src='/scripts/add-project-dates.js'></script>"		
 		
 		h 1 "Select project report dates"
 		
-		printf "<input type=%0hidden%0 id=%0project_end_date%0 value=%0%1%0/>" quote (utils :format-time-iso (project :end_date))
-		printf "<input type=%0hidden%0 id=%0project_start_date%0 value=%0%1%0/>" quote (utils :format-time-iso (project :start_date))
+		template "<input type='hidden' id='project_end_date' value='%0'/>" (utils :format-time-iso (project :end_date))
+		template "<input type='hidden' id='project_start_date' value='%0'/>" (utils :format-time-iso (project :start_date))
 		
 		p do
-			printf "Project start date: <time>%0</time>" (utils :format-time (project :start_date))
+			template "Project start date: <time>%0</time>" (utils :format-time (project :start_date))
 		end
 		p do
-			printf "Project end date: <time>%0</time>"  (utils :format-time (project :end_date))
+			template "Project end date: <time>%0</time>"  (utils :format-time (project :end_date))
 		end
 		
-		print-exactly "<section>"
+		section do
 			form "add-project-dates.beryl" "post" do
 				
-				printf "<input type=%0hidden%0 value=%0%1%0 name=%0project-id%0/>" quote project-id
+				template "<input type='hidden' value='%0' name='project-id'/>" project-id
 				
-				print-exactly "<span>"
-				printf "<input type=%0datetime-local%0 name=%0date_picker%0 id=%0date_picker%0 class=%0shakable%0>" quote
-				printf "<sub class=%0error%0 id=%0date_error_text%0><span class=%0invisible%0>***</span></sub><br/>" quote
+				template "<span>"
+					template "<input type='datetime-local' name='date_picker' id='date_picker' class='shakable'>"
+					template "<sub class='error' id='date_error_text'></sub>" 
+					
+					template "<input type='button' onclick='add_date()' value='Add'>"
+				template "</span>"
 				
-				printf "<input type=%0button%0 onclick=%0add_date()%0/ value=%0Add%0>" quote
-				print-exactly "</span>"
-				
-				printf "<span hidden id=%0form_date_list%0> </span>" quote
+				template "<span hidden id='form_date_list'> </span>"
 				
 				submit "Submit"
 			end
 			
 			template "<div id='date_list'></div>"
-		print-exactly "</section>"
+		end
 	end
 end
 
-let handle-post = function db do
+let handle-post = function db admin-token do
 	let data = cgi :parse-url-parameters (input read-all)
 	let project-id = data :project-id
 	
@@ -63,30 +59,38 @@ let handle-post = function db do
 		utils :parse-datetime (entry 1)
 	end
 	
-	projects :set-project-report-dates db project-id dates
+	let ok = db-interface :set-project-report-dates db admin-token project-id dates
 	
 	cgi :headers do
-		redirect (cat "/manage-project.beryl?id=" project-id)
+		if ok do
+			redirect (cat "/manage-project.beryl?id=" project-id)
+		end else do
+			redirect "/auth-error.html"
+		end
 	end
 end
 
 let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
 let req-type = assert (getenv "REQUEST_METHOD")
+let admin-token = cookies :admin-login
 
-if (req-type == "GET") or? (req-type == "POST") do
-	let admin-login = cookies :admin-login
-	let db = sql :open (cat server-data "/database")
-	if (admin-auth :auth-admin db admin-login) do
-		if req-type == "GET" do
-			let params = cgi :parse-url-parameters (getenv "QUERY_STRING")
-			handle-get db (params :id)
-		end else do
-			handle-post db
-		end
+if req-type == "GET" do
+	let params = cgi :parse-url-parameters (getenv "QUERY_STRING")
+	let project-id = parse-number (params :id) default: ""
+	
+	let db = sql :open (db-interface :db-path)
+	let project = db-interface :get-project-details db admin-token project-id
+	sql :close db
+	
+	if project =/= null do
+		handle-get project-id (project :project)
 	end else do
 		cgi :headers do
-			redirect "/auth-error.html"
+			redirect "auth-error.html"
 		end
 	end
+end elseif req-type == "POST" do
+	let db = sql :open (db-interface :db-path)
+	handle-post db admin-token
 	sql :close db
 end
