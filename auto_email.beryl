@@ -1,8 +1,8 @@
 let sql = require "~/sql"
 let argon2 = require "~/argon2"
 
+let db-interface = require "www/db-interface"
 let auth = require "www/auth"
-let projects = require "www/projects"
 let utils = require "www/utils"
 let mail-template = require "www/mail-templates/mail-template"
 
@@ -65,6 +65,8 @@ let mail = function to to-name subject content do
 	run "./send_mail.sh" url from to pass-input (cat mail_password newline mail-payload)
 end
 
+# ------------------ New users, assigning and sending out random passwords
+
 let users-without-passwords = db "SELECT id, member_id, name, email FROM users WHERE encoded_password IS NULL"
 
 let new-user-email-template = require "www/mail-templates/new-user.template"
@@ -85,6 +87,8 @@ for-in users-without-passwords with user do
 	end
 end
 
+# --------------------- Database email queue
+
 let email-queue = db "SELECT id, to_name, to_email, subject, content FROM email_queue"
 
 for-in email-queue with due-email do
@@ -94,31 +98,41 @@ for-in email-queue with due-email do
 	db "DELETE FROM email_queue WHERE id = ?1" (due-email :id)
 end
 
-let all-projects = projects :get-projects db
+# ---------------------- Deadline reminder notifactions
+
+let all-projects = db-interface :__get-all-projects db
 
 let deadline-email-template = require "www/mail-templates/report-deadline-notification.template"
 
+let send-deadline-emails-for-project = function db project members reporting-details do
+	for-in members with member do
+		let submitted-report = db-interface :__get-report-for db (project :id) (member :id) (reporting-details :period)
+		if (submitted-report == null) and? ((member :email) =/= null) do # Send out to all members who have not submitted a report, and who have an email address
+			let mail-content = mail-template deadline-email-template (struct
+				:USER_NAME (member :name)
+				:PROJECT (project :name)
+				:TIME_LEFT (utils :format-time-diff (reporting-details :time-left))
+				:SUBMIT_REPORT_URL (cat "submit-report.beryl?project_id=" (project :id))
+				:DUE_DATE (utils :format-time (reporting-details :period-ends-at))
+				:PERIOD (as-string (reporting-details :period))
+			)
+			mail (member :email) (member :name) "Report deadline notification" mail-content
+		end
+	end
+end
+
 for-in all-projects with project do
-	let project-members = projects :get-project-members db (project :id)
+	let project-members = db-interface :__get-project-members db (project :id)
 	let current-time = invoke time
 
 	if (current-time =>= (project :start_date)) and? (current-time =<= (project :end_date)) do
-		let reporting-details = projects :get-project-report-info db project
+		let reporting-details = db-interface :__get-project-report-info db project
 		let period = reporting-details :period
 		if (period =/= null) do
+			#The notification counter counts the highest period that notifications have been sent out for.
 			if period > (project :sent_notifications_count) and? ((reporting-details :time-left) =<= 86400) do
 				db "UPDATE projects SET sent_notifications_count = ?1" period
-				for-in project-members with member do
-					let submitted-report = projects :get-report db (project :id) (member :id) period
-					if (submitted-report == null) and? ((member :email) =/= null) do
-						let mail-content = mail-template deadline-email-template (struct
-							:PROJECT (project :name)
-							:TIME_LEFT (utils :format-time-diff (reporting-details :time-left))
-							:SUBMIT_REPORT_URL (cat "submit-report.beryl?project_id=" (project :id))
-						)
-						mail (member :email) (member :name) "Report deadline notification" mail-content
-					end
-				end
+				send-deadline-emails-for-project db project project-members reporting-details
 			end
 		end
 	end

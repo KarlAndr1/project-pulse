@@ -223,14 +223,18 @@ require-version 0
 		end
 	end
 	
-	:get-all-projects function db admin-token do
-		if (self :auth-admin db admin-token) do
-			db "
+	:__get-all-projects function db do # Some external tools, like the auto-email system, need to be able get a list of projects without a valid admin token
+		db "
 				SELECT 
-					id, name, report_frequency, start_date, end_date, (?1 > end_date) as archived 
+					id, name, report_frequency, start_date, end_date, (?1 > end_date) as archived, sent_notifications_count
 				FROM projects 
 				ORDER BY archived 
-			" (invoke time)
+		" (invoke time)
+	end
+	
+	:get-all-projects function db admin-token do
+		if (self :auth-admin db admin-token) do
+			self :__get-all-projects db
 		end else do
 			null
 		end
