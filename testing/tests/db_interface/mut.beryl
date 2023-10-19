@@ -1,0 +1,106 @@
+let sql = require "~/sql"
+
+let db-interface = require (cat (getenv "www") "/db-interface")
+
+let random-token = function token do
+	let token-id = (token split: ":" 0)
+	
+	cat token-id ":" (rand-hexs 32)
+end
+
+let num-user-logins = function db do
+	sizeof (db "SELECT * FROM user_logins")
+end
+
+let test-user-login = function db id password someone-elses-password do
+	let random-pass = rand-hexs 32
+	let rand-id = rand-hexs 4
+	
+	let start-logins = num-user-logins db
+	
+	assert (db-interface :login-user db id "") == null
+	assert (num-user-logins db) == start-logins
+	
+	assert (db-interface :login-user db id random-pass) == null
+	assert (num-user-logins db) == start-logins
+	
+	assert (db-interface :login-user db rand-id password) == null
+	assert (num-user-logins db) == start-logins
+	
+	assert (db-interface :login-user db id someone-elses-password) == null
+	assert (num-user-logins db) == start-logins
+	
+	let login-token = assert (db-interface :login-user db id password)
+	assert (num-user-logins db) == (start-logins + 1)
+	
+	login-token
+end
+
+let admin-is-logged-in = function db name do
+	let login-token = ((db "SELECT encoded_auth_token FROM admins WHERE name = ?1" name) 0) :encoded_auth_token
+	
+	login-token =/= null
+end
+
+let test-admin-login = function db name password do
+	assert (not (admin-is-logged-in db name))
+	
+	let random-name = rand-hexs 16
+	let random-password = rand-hexs 32
+	
+	assert (db-interface :login-admin db name "") == null
+	assert (not (admin-is-logged-in db name))
+	
+	assert (db-interface :login-admin db name random-password) == null
+	assert (not (admin-is-logged-in db name))
+	
+	assert (db-interface :login-admin db random-name password) == null
+	assert (not (admin-is-logged-in db name))
+	
+	let admin-token = assert (db-interface :login-admin db name password)
+	assert (admin-is-logged-in db name)
+	
+	admin-token
+end
+
+invoke do
+	let static-time = 0
+	let global time = function do
+		static-time
+	end
+	
+	let db = sql :open (db-interface :db-path)
+	
+	assert (sizeof (db "SELECT * FROM user_logins")) == 0
+	
+	# Login
+	let user1-token = test-user-login db "12a" (getenv "PASS1") (getenv "PASS3")
+	let user2-token = test-user-login db "1" (getenv "PASS2") (getenv "PASS1")
+	let user3-token = test-user-login db "9.99" (getenv "PASS3") (getenv "PASS2")
+
+	# auth-user
+	let u1 = db-interface :auth-user db user1-token
+	assert (u1 :name) == "user1"
+	assert (u1 :member_id) == "12a"
+	
+	let u2 = db-interface :auth-user db user2-token
+	assert (u2 :name) == "user2"
+	assert (u2 :member_id) == "1"
+	
+	let u3 = db-interface :auth-user db user3-token
+	assert (u3 :name) == "user3"
+	assert (u3 :member_id) == "9.99"
+	
+	assert (db-interface :auth-user db (random-token "1:")) == null
+	assert (db-interface :auth-user db "") == null
+	assert (db-interface :auth-user db null) == null
+	
+	#login-admin
+	let admin-token = test-admin-login db "admin" "123"
+	
+	# auth-admin
+	assert (db-interface :auth-admin db null) == false
+	assert (db-interface :auth-admin db "") == false
+	assert (db-interface :auth-admin db (random-token admin-token)) == false
+	assert (db-interface :auth-admin db admin-token) == true
+end

@@ -10,12 +10,20 @@ tests_done=0
 tests_passed=0
 
 for test_case in ./tests/*; do
-	cd $test_case
+	if [[ -n "$1" && "$1" != "$(basename "$test_case")" ]]; then
+		continue
+	fi
+	
+	cd "$test_case"
 	echo "Test case $test_case"
 	for test in ./*.sh; do
+		if [[ -n "$2" && "$2.sh" != "$(basename "$test")" ]]; then
+			continue
+		fi
+		
 		cd ../../
 		./init_tests.sh
-		cd $test_case
+		cd "$test_case"
 		
 		echo "Test $(basename $test_case)/$(basename $test)"
 		bash ../../exec_test.sh "$test"

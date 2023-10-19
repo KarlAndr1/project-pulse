@@ -1,0 +1,30 @@
+let sql = require "~/sql"
+
+let auth = require (cat (getenv "www") "/auth")
+let db-interface = require (cat (getenv "www") "/db-interface")
+
+let db = sql :open (db-interface :db-path)
+
+let enc-pass1 = auth :encode-password (getenv "PASS1")
+let enc-pass2 = auth :encode-password (getenv "PASS2")
+let enc-pass3 = auth :encode-password (getenv "PASS3")
+
+db "
+	INSERT INTO users (name, member_id, encoded_password) VALUES
+		('user1', '12a', ?1),
+		('user2', '1', ?2),
+		('user3', '9.99', ?3)
+" enc-pass1 enc-pass2 enc-pass3
+
+db "
+	INSERT INTO project_member_bindings (user_id, project_id) VALUES
+		(1, 1),
+		(1, 2),
+		
+		(2, 1),
+		(2, 2),
+		(2, 3),
+		
+		(3, 4),
+		(3, 5)
+"

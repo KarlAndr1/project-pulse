@@ -1,9 +1,9 @@
 let argon2 = require "~/argon2"
 let sql = require "~/sql"
 
-let projects = require (cat (getenv "www") "/projects.beryl")
+let db-interface = require (cat (getenv "www") "/db-interface.beryl")
 
-let db = sql :open (cat (getenv "LIGHTTPD_DATA_PATH") "/database")
+let db = sql :open (db-interface :db-path)
 
 let member_id = "1"
 let pass = "123"
@@ -20,18 +20,14 @@ db "
 let project_id = sql :get-last-insert-rowid db
 
 let start-date = parse-number (getenv "START_DATE")
+	
+db "INSERT INTO project_report_dates (project_id, _date) VALUES
+	(?1, ?2),
+	(?1, ?3),
+	(?1, ?4),
+	(?1, ?5)
+" project_id start-date + 1000 start-date + 3000 start-date + 7000 start-date + 9000
 
-invoke do 
-	let global time = function do
-		start-date # So that the project isn't considered 'archived' (meaning that dates can't be added)
-	end
-	projects :set-project-report-dates db project_id (array
-		start-date + 1000
-		start-date + 3000
-		start-date + 7000
-		start-date + 9000
-	)
-end
 
 db "
 	INSERT INTO project_member_bindings (user_id, project_id) VALUES (?1, ?2)

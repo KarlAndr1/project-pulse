@@ -1,0 +1,6 @@
+export PASS1=123
+export PASS2=abcd
+export PASS3=mla_ei2z3hef
+
+sqlite3 "$LIGHTTPD_DATA_PATH/database" < setup_db.sql
+beryl setup_users.beryl
