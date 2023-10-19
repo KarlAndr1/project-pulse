@@ -63,6 +63,302 @@ let test-admin-login = function db name password do
 	admin-token
 end
 
+let test-add-users = function db admin-token users do
+	let begin-users = db "SELECT * FROM users"
+	
+	for-in users with user do # Check that the users don't already exist in the database
+		assert (sizeof (db "SELECT * FROM users WHERE member_id = ?1" (user 0))) == 0
+	end
+	
+	let res = null
+	
+	res = db-interface :add-users db null users
+	assert res == false
+	assert (sizeof (db "SELECT * FROM users")) == (sizeof begin-users)
+	
+	res = db-interface :add-users db "" users
+	assert res == false
+	assert (sizeof (db "SELECT * FROM users")) == (sizeof begin-users)
+	
+	res = db-interface :add-users db (random-token admin-token) users
+	assert res == false
+	assert (sizeof (db "SELECT * FROM users")) == (sizeof begin-users)
+	
+	res = db-interface :add-users db (cat (rand-hexs 16) ":" (rand-hexs 32)) users
+	assert res == false
+	assert (sizeof (db "SELECT * FROM users")) == (sizeof begin-users)
+	
+	res = db-interface :add-users db admin-token users
+	assert res == true
+	let after-users = db "SELECT * FROM users"
+	
+	assert (sizeof after-users) == ((sizeof begin-users) + (sizeof users))
+	for-in users with user do
+		let added-user = (db "SELECT member_id, name, email, phone_number FROM users WHERE member_id = ?1" (user 0)) 0
+		assert added-user
+		assert (added-user :member_id) == (user 0)
+		assert (added-user :name) == (user 1)
+		assert ((added-user :email) == (user 2)) or? (((user 2) == "") and? ((added-user :email) == null))
+		assert ((added-user :phone_number) == (user 3)) or? (((user 3) == "") and? ((added-user :phone_number) == null))
+	end
+end
+
+let make-random-users = function amount do
+	construct-array amount with i do
+		array (rand-hexs 8) (rand-hexs 16) (rand-hexs 16) (rand-hexs 8)
+	end
+end
+
+let make-random-projects = function amount do
+	construct-array amount with i do
+		let start-date = round (invoke random) * 1000000
+		(struct 
+			:name (rand-hexs 16) 
+			:freq (round (invoke random) * 60 * 60 * 24 * 30) 
+			:start_date start-date 
+			:end_date start-date + (round (invoke random) * 10000000)
+		)
+	end
+end
+
+let test-create-new-projects = function db admin-token projects do
+	let n-projects = sizeof (db "SELECT * FROM projects")
+	
+	for-in projects with project do
+		let start-projects = db "SELECT * FROM projects"
+		
+		let res = null
+		res = db-interface :create-new-project db null (project :name) (project :freq) (project :start_date) (project :end_date)
+		assert (res 0) == null
+		assert (res 1) == :auth-error
+		assert (sizeof (db "SELECT * FROM projects")) == (sizeof start-projects)
+		
+		res = db-interface :create-new-project db "" (project :name) (project :freq) (project :start_date) (project :end_date)
+		assert (res 0) == null
+		assert (res 1) == :auth-error
+		assert (sizeof (db "SELECT * FROM projects")) == (sizeof start-projects)
+		
+		res = db-interface :create-new-project db (random-token admin-token) (project :name) (project :freq) (project :start_date) (project :end_date)
+		assert (res 0) == null
+		assert (res 1) == :auth-error
+		assert (sizeof (db "SELECT * FROM projects")) == (sizeof start-projects)
+		
+		res = db-interface :create-new-project db admin-token (project :name) (project :freq) (project :start_date) (project :end_date)
+		assert (res 0) =/= null
+		assert (res 1) == null
+		assert (sizeof (db "SELECT * FROM projects")) == ((sizeof start-projects) + 1)
+		
+		let added-project = (db "SELECT name, report_frequency, start_date, end_date FROM projects WHERE id = ?1" (res 0)) 0
+		assert added-project
+		
+		assert (added-project :name) == (project :name)
+		assert (added-project :report_frequency) == (project :freq)
+		assert (added-project :start_date) == (project :start_date)
+		assert (added-project :end_date) == (project :end_date)
+	end
+	
+	assert (n-projects + (sizeof projects)) == (sizeof (db "SELECT * FROM projects"))
+end
+
+let test-add-project-member = function db admin-token user-token project-id user-member-id is-already-in-project do
+	let project-start-date = ((db "SELECT start_date FROM projects WHERE id = ?1" project-id) 0) :start_date
+	let global time = function do
+		project-start-date
+	end
+	
+	let user-is-in-project = function db user-token project-id do
+		let projects = db-interface :get-user-projects db user-token
+		
+		let res = exists projects with x do
+			let project = x 0
+			let members = x 1
+			
+			(and? 
+				(project :id) == project-id
+				members exists: with y do
+					(y :member_id) == user-member-id
+				end
+			)
+		end
+		
+		let user-members = (db-interface :get-project-details db admin-token project-id) :members
+		let res2 = exists user-members with x do
+			(x :member_id) == user-member-id
+		end
+		assert res == res2 # If the project exists in the users's projects, then the user should exist in the project members, and vice-versa
+		
+		res
+	end
+	
+	let n-user-projects = function db user-token do
+		sizeof (db-interface :get-user-projects db user-token)
+	end
+	
+	let n-project-member-bindings =  ((db "SELECT COUNT(*) as c FROM project_member_bindings") 0) :c
+	let res = null
+	
+	let user-id = ((db "SELECT id FROM users WHERE member_id = ?1" user-member-id) 0) :id
+	if is-already-in-project do
+		assert (user-is-in-project db user-token project-id)
+	end else do
+		assert (not (user-is-in-project db user-token project-id)) 
+	end
+	
+	res = db-interface :add-project-member db null project-id user-member-id
+	assert (sizeof (db "SELECT * FROM project_member_bindings")) == n-project-member-bindings
+	assert res == :auth-error
+	
+	res = db-interface :add-project-member db "" project-id user-member-id
+	assert (sizeof (db "SELECT * FROM project_member_bindings")) == n-project-member-bindings
+	assert res == :auth-error
+	
+	res = db-interface :add-project-member db (random-token admin-token) project-id user-member-id
+	assert (sizeof (db "SELECT * FROM project_member_bindings")) == n-project-member-bindings
+	assert res == :auth-error
+	
+	res = db-interface :add-project-member db (random-token admin-token) project-id (rand-hexs 8)
+	assert (sizeof (db "SELECT * FROM project_member_bindings")) == n-project-member-bindings
+	assert res == :auth-error
+	
+	res = db-interface :add-project-member db admin-token project-id (rand-hexs 8)
+	assert (sizeof (db "SELECT * FROM project_member_bindings")) == n-project-member-bindings
+	assert res == :invalid-id
+	
+	res = db-interface :add-project-member db admin-token project-id user-member-id
+	if is-already-in-project do
+		assert res == :duplicate-member
+		assert (sizeof (db "SELECT * FROM project_member_bindings")) == n-project-member-bindings
+	end else do
+		assert res == null
+		assert (sizeof (db "SELECT * FROM project_member_bindings")) == (n-project-member-bindings + 1)
+	end
+	
+	assert (user-is-in-project db user-token project-id)
+end
+
+let interpolate-rand = function from to do
+	let rand = invoke random
+	let diff = to - from
+	
+	from + (diff * rand)
+end
+
+let get-report-count = function db do
+	((db "SELECT COUNT(*) AS c FROM reports") 0) :c
+end
+	
+
+let test-submit-report = function db user-token project-id report-content do
+	let rcount = get-report-count db
+	
+	assert (db-interface :submit-report db null project-id report-content) == false
+	assert (get-report-count db) == rcount
+	
+	assert (db-interface :submit-report db "" project-id report-content) == false
+	assert (get-report-count db) == rcount
+	
+	assert (db-interface :submit-report db (random-token user-token) project-id report-content) == false
+	assert (get-report-count db) == rcount
+	
+	let res = db-interface :submit-report db user-token project-id report-content
+	
+	if (get-report-count db) == (rcount + 1) do
+		assert res == true
+	end
+	
+	res
+end
+
+let test-get-report = function db admin-token user-token project-id do # Tries to get the report for the current period, checks for both admin and user
+	let user = db-interface :auth-user db user-token
+	
+	let admin-project = db-interface :get-project-details db admin-token project-id # admin's view of the report/project
+	let reports = db-interface :get-project-reports db admin-token project-id (admin-project :report-info :period) null
+	let user-reports = filter reports with x do (x :member_id) == (user :member_id) end
+	assert ((sizeof user-reports) == 0) or? ((sizeof user-reports) == 1)
+	
+	let report = user-reports 0
+	
+	let user-projects = db-interface :get-user-projects db user-token
+	let user-project = first user-projects with x do
+		let project = x 0
+		(project :id) == project-id
+	end
+	assert user-project
+	user-project = assert (user-projects user-project) # user-project is the user's view of the project
+	let user-report-view = user-project 3
+	
+	if report == null do
+		assert user-report-view == null
+	end else do
+		assert (and? # Check that the user's view of the report is the same as the admins
+			(user-report-view :id) == (report :id)
+			(user-report-view :content) == (report :content)
+			(user-report-view :period) == (report :period)
+		)
+	end
+	
+	report
+end
+
+let test-report-handling = function db admin-token user-token project-ids do
+	let static-time = null
+	let global time = function do
+		round (assert static-time)
+	end
+	
+	let tparam1 = ((invoke random) * 60 * 60 * 24 * 365 * 10) + 1 # Ten years worth of randomness
+	
+	for-in project-ids with project-id do
+		let rcount = get-report-count db
+		
+		let report-content = rand-hexs 128
+		
+		let project = (db "SELECT * FROM projects WHERE id = ?1" project-id) 0
+		
+		static-time = (project :start_date) - tparam1
+		assert (test-submit-report db user-token project-id report-content) == false
+		
+		static-time = (project :start_date)
+		loop do # Loop over every period
+			report-content = rand-hexs 128
+			let time-details = db-interface :__get-project-report-info db project
+			
+			if (time-details :period) =/= null do # Check that there's still another reporting period
+				# Pick a random time between when the period begins and when the period ends
+				static-time = (interpolate-rand static-time (time-details :period-ends-at)) - 1
+				assert (test-get-report db admin-token user-token project-id) == null # Check that the report does not yet exist
+				
+				assert (test-submit-report db user-token project-id report-content) == true # Submit the report
+				
+				invoke do
+					let r1 = get-report-count db
+					assert (test-submit-report db user-token project-id report-content) == true
+					assert r1 == (get-report-count db) # Check that it can't be submitted twice
+				end
+				
+				let report = assert (test-get-report db admin-token user-token project-id) # Get the report
+				assert (report :content) == report-content
+				assert (report :period) == (time-details :period)
+				assert (report :time) == (round static-time)
+				
+				let report-id = report :id
+				report = assert (db-interface :__get-report db report-id)
+				assert (report :report :content) == report-content
+				assert (report :report :period) == (time-details :period)
+				assert (report :report :time) == (round static-time)
+				assert (sizeof (report :comments)) == 0
+				assert (report :report :id) == report-id
+				
+				static-time = (time-details :period-ends-at) + 1 # Go to the next period
+				true
+			end else do
+				false
+			end
+		end
+	end
+end
+
 invoke do
 	let static-time = 0
 	let global time = function do
@@ -103,4 +399,39 @@ invoke do
 	assert (db-interface :auth-admin db "") == false
 	assert (db-interface :auth-admin db (random-token admin-token)) == false
 	assert (db-interface :auth-admin db admin-token) == true
+	
+	# add-users
+	test-add-users db admin-token (make-random-users 8)
+	test-add-users db admin-token (make-random-users 16)
+	test-add-users db admin-token (make-random-users 8) join: (array
+		(array "some-id1" "some-name" "" "123")
+		(array "some-id2" "some-other-name" "some@email.com" "")
+		(array "some-id3" "some-name-other" "" "")
+	)
+	test-add-users db admin-token (make-random-users 2)
+	
+	# create-new-project
+	test-create-new-projects db admin-token (make-random-projects 4)
+	test-create-new-projects db admin-token (make-random-projects 2) join: (array
+		(struct :name "some-test-project" :freq 60 * 60 * 24 :start_date 0 :end_date 94329432)
+		(struct :name "some-other-test-project" :freq 60 * 60 * 24 * 7 :start_date 0 :end_date 9999999)
+	)
+	test-create-new-projects db admin-token (make-random-projects 4)
+	
+	# add-project-member together with get-user-projects and get-project-details
+	db "DELETE FROM project_member_bindings"
+	
+	test-add-project-member db admin-token user1-token 1 "12a" false
+	test-add-project-member db admin-token user3-token 3 "9.99" false
+	test-add-project-member db admin-token user1-token 5 "12a" false
+	
+	test-add-project-member db admin-token user2-token 1 "1" false
+	test-add-project-member db admin-token user3-token 1 "9.99" false
+	test-add-project-member db admin-token user2-token 1 "1" true
+	
+	# report submitting, viewing
+	test-report-handling db admin-token user1-token (array 1 5)
+	test-report-handling db admin-token user2-token (array 1)
+	test-report-handling db admin-token user3-token (array 1 3)
+
 end

@@ -274,7 +274,8 @@ require-version 0
 					u.member_id as member_id, 
 					u.email as email, 
 					u.phone_number as phone_number,
-					r.marked_read as marked_read
+					r.marked_read as marked_read,
+					r.period
 				FROM reports as r
 				JOIN users as u
 					ON u.id = r.user_id
@@ -445,7 +446,7 @@ require-version 0
 	
 	# ---------- General, both user and admin related
 	
-	:__get-report function db report-id do
+	:__get-report function db report-id do #Returns a struct { :report [report] :project-name [name] :comments [comments] :prev-report-id [id] }
 		let report = (db "SELECT id, time, period, content, marked_read, project_id, user_id FROM reports WHERE id = ?1" report-id) 0
 		let project-name = ((db "SELECT name FROM projects WHERE id = ?1" (report :project_id)) 0) :name
 		let comments = db "SELECT content, time FROM report_comments WHERE report_id = ?1 ORDER BY time DESC" report-id
@@ -467,7 +468,7 @@ require-version 0
 	
 	:__get-report-for function db project-id period user-id do
 		(db "
-			SELECT id, time, content, marked_read FROM reports WHERE project_id = ?1 AND user_id = ?2 AND period = ?3
+			SELECT id, time, content, marked_read, period FROM reports WHERE project_id = ?1 AND user_id = ?2 AND period = ?3
 		" project-id user-id period) 0
 	end
 	
