@@ -55,3 +55,18 @@ To run automated tests, change the current working directory to ./testing and th
 cd ./testing
 ./run_tests.sh
 ```
+
+## Administrative tools
+
+Administrative can edit various database values via the admin-tools
+
+Make sure that the current directory is ./admin-tools
+```
+cd ./admin-tools
+```
+
+To change user details (name, email, phone number) use:
+edit-user
+```
+./admin-tools.sh edit-user
+```
