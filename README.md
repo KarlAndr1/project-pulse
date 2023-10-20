@@ -14,7 +14,7 @@ The project should run on any Unix-like system (or Windows via WSL). Only tested
 Make sure the current working directory is the directory that contains setup.sh and this README file.
 Run
 ```
-sudo ./setup.sh
+./setup.sh
 ```
 And enter configuration options when prompted for.
 Then run
@@ -28,7 +28,7 @@ Run
 ```
 ./add_adming_login.beryl
 ```
-To add a new admin login.
+To add a new admin login. Note that this take affect unless the server database is deleted and replaced with the database in ./data (sudo ./load.sh --dontk-keep-data)
 
 ```
 ./remake_db.sh
@@ -59,6 +59,7 @@ cd ./testing
 ## Administrative tools
 
 Administrative can edit various database values via the admin-tools
+Note that these affect the server's database, not the local database in ./data.
 
 Make sure that the current directory is ./admin-tools
 ```
@@ -70,3 +71,6 @@ edit-user
 ```
 ./admin-tools.sh edit-user
 ```
+
+The contents of the automated emails are generated based on templates stored in ./www/mail-templates.
+These can be freely edited. Remember to run 'sudo ./load.sh' to sync any changes made to the server's directory.

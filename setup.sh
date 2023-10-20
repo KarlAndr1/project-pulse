@@ -6,22 +6,22 @@ error() {
 }
 
 which beryl > /dev/null || error "Beryl is not installed. Go to https://github.com/KarlAndr1/beryl to install it (make sure to install it globally)"
-which lighttpd /dev/null || error "lighttpd is not installed. Check out https://www.lighttpd.net/"
+which lighttpd > /dev/null || error "lighttpd is not installed. Check out https://www.lighttpd.net/"
 
-if [ -! -f "$BERYL_SCRIPT_HOME/cgi.beryldl" ]; then
+if [ ! -f "$BERYL_SCRIPT_HOME/libs/cgi.beryldl" ]; then
 	error "BerylCGI is not installed. Go to https://github.com/KarlAndr1/beryl-cgi to install it"
 fi
 
-if [ ! -f "$BERYL_SCRIPT_HOME/sql.beryldl" ]; then
+if [ ! -f "$BERYL_SCRIPT_HOME/libs/sql.beryldl" ]; then
 	error "BerylSQL is not installed. Go to https://github.com/KarlAndr1/beryl-sql to install it"
 fi
 
-if [ ! -f "$BERYL_SCRIPT_HOME/argon2.beryldl" ]; then
+if [ ! -f "$BERYL_SCRIPT_HOME/libs/argon2.beryldl" ]; then
 	error "BerylArgon2 is not installed. Go to https://github.com/KarlAndr1/beryl-argon2 to install it"
 fi
 
 default_dir=/srv/www/project-pulse
-echo "Enter directory for the static server files (html and CGI scripts) to be stored in (leave blank for default: $default_dir)"
+echo "Enter directory for the static server files (HTML documents and CGI scripts) to be stored in (leave blank for default: $default_dir)"
 read www_dir
 if [ "$www_dir" == "" ]; then
 	www_dir="$default_dir"
@@ -73,11 +73,11 @@ if [ "$confirm" != y -a "$confirm" != Y -a "$confirm" != yes -a "$confirm" != Ye
 	exit 0
 fi
 
-adduser --system --no-create-home "$www_usr"
+sudo adduser --system --no-create-home "$www_usr"
 
-mkdir -p "$www_dir"
-mkdir -p "$data_dir"
-chown -R "$www_usr" "$data_dir"
+sudo mkdir -p "$www_dir"
+sudo mkdir -p "$data_dir"
+sudo chown -R "$www_usr" "$data_dir"
 
 cat <<ENV_SCRIPT > ./env.sh
 export LIGHTTPD_CONTENT_PATH="$www_dir"
@@ -98,4 +98,4 @@ source ./env.sh
 
 ./remake_db.sh
 
-./load.sh --dont-keep-user-data
+sudo ./load.sh --dont-keep-data
