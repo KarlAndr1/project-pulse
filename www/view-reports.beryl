@@ -18,7 +18,7 @@ let handle-get = function project-id period read-reports unread-reports project 
 			link "➥Back" (cat "manage-project.beryl?id=" project-id)
 			
 			p do
-				if period =/= "1" do
+				if period =/= 1 do
 					link "Previous period" (cat "view-reports.beryl?pid=" project-id "&period=" (period - 1))
 					print-exactly " | "
 				end
