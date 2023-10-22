@@ -12,6 +12,7 @@ require-version 0
 	# ------- User auth
 	
 	# Create a new token for this user
+	# [TESTED]
 	:login-user function db member_id pass do
 		let user = (db "SELECT id, encoded_password FROM users WHERE member_id = ?1" member_id) 0
 		if (user =/= null) and? ((user :encoded_password) =/= null) do
@@ -35,6 +36,7 @@ require-version 0
 		end # else null
 	end
 	
+	# [UNTESTED]
 	:logout-user function db token-cookie do
 		let user = self :auth-user db token-cookie
 		if user =/= null do
@@ -42,6 +44,7 @@ require-version 0
 		end
 	end
 	
+	# [TESTED]
 	:auth-user function db token-cookie do #Returns the user if the credentials are correct, null otherwise
 		let user-id = null
 		if token-cookie =/= null do
@@ -66,6 +69,7 @@ require-version 0
 		end
 	end
 	
+	# [UNTESTED]
 	:verify-user-password function db user-id password do
 		let encoded-pass = ((db "SELECT encoded_password FROM users WHERE id = ?1" user-id) 0) :encoded_password
 		if encoded-pass =/= null do
@@ -75,6 +79,7 @@ require-version 0
 		end
 	end
 	
+	# [UNTESTED]
 	:update-user-password function db user-token old-password new-password do
 		let user = self :auth-user db user-token
 		if user =/= null do
@@ -104,6 +109,7 @@ require-version 0
 	
 	# ------------ Admin auth
 	
+	# [TESTED]
 	:login-admin function db name pass do
 		let admin-info = (db "SELECT encoded_password, encoded_auth_token FROM admins WHERE name = ?1" name) 0
 		if admin-info =/= null do
@@ -122,6 +128,7 @@ require-version 0
 		end # else just null
 	end
 	
+	# [UNTESTED]
 	:logout-admin function db token-cookie do
 		let passed = self :auth-admin db token-cookie
 		if passed do
@@ -130,6 +137,7 @@ require-version 0
 		end
 	end
 	
+	# [TESTED]
 	:auth-admin function db token-cookie do # Returns true 
 		let passed = false
 		if (token-cookie =/= "") and? (token-cookie =/= null) do
@@ -148,6 +156,7 @@ require-version 0
 	
 	# --- Admin interfaces
 	
+	# [TESTED]
 	:add-users function db admin-token users do
 		if (self :auth-admin db admin-token) do
 			for-in users with user do
@@ -175,6 +184,7 @@ require-version 0
 		end
 	end
 	
+	# [TESTED]
 	:create-new-project function db admin-token name freq-time start-date end-date do
 		let current-time = invoke time
 		if (self :auth-admin db admin-token) do
@@ -196,6 +206,7 @@ require-version 0
 		end
 	end
 	
+	# [TESTED]
 	:add-project-member function db admin-token project-id user-member-id do
 		if (self :auth-admin db admin-token) do
 			let user = (db "SELECT name, email, id FROM users WHERE member_id = ?1" user-member-id) 0
@@ -232,6 +243,7 @@ require-version 0
 		" (invoke time)
 	end
 	
+	# [TESTED]
 	:get-all-projects function db admin-token do
 		if (self :auth-admin db admin-token) do
 			self :__get-all-projects db
@@ -240,6 +252,7 @@ require-version 0
 		end
 	end
 	
+	# [TESTED]
 	:get-project-details function db admin-token project-id do
 		if (self :auth-admin db admin-token) do
 			let project = (db "
@@ -255,6 +268,7 @@ require-version 0
 		end
 	end
 	
+	# [TESTED]
 	:get-all-users function db admin-token do
 		if (self :auth-admin db admin-token) do
 			db "SELECT id, member_id, name, email, phone_number FROM users"
@@ -263,6 +277,7 @@ require-version 0
 		end
 	end
 	
+	# [TESTED]
 	:get-project-reports function db admin-token project-id period marked-read do #Marked read can be either 0, 1, or null (i.e both)
 		if (self :auth-admin db admin-token) do
 			db "
@@ -289,6 +304,7 @@ require-version 0
 		end
 	end
 	
+	# [UNTESTED]
 	:get-members-without-reports function db admin-token project-id period do
 		if (self :auth-admin db admin-token) do
 			# https://stackoverflow.com/questions/1247361/get-the-inverse-of-a-join
@@ -315,6 +331,7 @@ require-version 0
 		end
 	end
 	
+	# [UNTESTED]
 	:admin-get-report function db admin-token report-id do
 		if (self :auth-admin db admin-token) do
 			self :__get-report db report-id
@@ -323,6 +340,7 @@ require-version 0
 		end
 	end
 	
+	# [UNTESTED]
 	:mark-report-read function db admin-token report-id do
 		if (self :auth-admin db admin-token) do
 			db "UPDATE reports SET marked_read = 1 WHERE id = ?1" report-id
@@ -332,6 +350,7 @@ require-version 0
 		end
 	end
 	
+	# [UNTESTED]
 	:post-report-comment function db admin-token report-id comment do
 		if (self :auth-admin db admin-token) do
 			db "
@@ -346,6 +365,7 @@ require-version 0
 		end
 	end
 	
+	# [UNTESTED]
 	:set-project-report-dates function db admin-token project-id dates do
 		if (self :auth-admin db admin-token) do
 			let members = self :__get-project-members db project-id
@@ -370,6 +390,7 @@ require-version 0
 	
 	# ---------- User interfaces/actions
 	
+	# [UNTESTED]
 	:user-get-report function db user-token report-id do
 		let user = self :auth-user db user-token
 		let report = self :__get-report db report-id
@@ -380,6 +401,7 @@ require-version 0
 		end
 	end
 	
+	# [TESTED]
 	:get-user-projects function db user-token do #Returns an array consisting of arrays like so (project project-members report-info report-for-this-period)
 		let user = self :auth-user db user-token
 		if user =/= null do
@@ -409,6 +431,7 @@ require-version 0
 		end
 	end
 	
+	# [TESTED]
 	:submit-report function db user-token project-id content do
 		let user = self :auth-user db user-token
 		
@@ -440,6 +463,7 @@ require-version 0
 		end
 	end
 	
+	# [TESTED]
 	:get-user-details function db user-token do
 		self :auth-user db user-token
 	end
