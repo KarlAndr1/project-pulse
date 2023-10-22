@@ -2,7 +2,7 @@
 
 ## Dependencies:
 - bash
-- beryl - 0.X.X
+- beryl - 0.X.X (make sure to install globally)
 - bery-sql
 - beryl-cgi
 - beryl-argon2
