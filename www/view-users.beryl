@@ -1,52 +1,72 @@
 let cgi = require "~/cgi"
 let sql = require "~/sql"
 
-let server-data = assert (getenv "LIGHTTPD_DATA_PATH")
+let db-interface = require "db-interface"
 
-let db = sql :open (cat server-data "/database")
-let users = db "SELECT member_id, name, email, phone_number, encoded_password FROM users"
-sql :close db
+let handle-get = function users do
+	cgi :headers do
+		invoke content-type-html
+	end
 
-cgi :headers do
-	invoke content-type-html
-end
-
-cgi :html do
-	print-exactly (require "header.html")
-	
-	h 1 "Users"
-	
-	div do
-		html-table do
-			tr do
-				th "Id"
-				th "Name"
-				th "Email"
-				th "Phone"
-			end
-			
-			for-in users with user do
+	cgi :html do
+		print-exactly (require "header.html")
+		
+		h 1 "Users"
+		
+		div do
+			html-table do
 				tr do
-					#td (cgi :sanitize-html (user :member_id))
-					#td (cgi :sanitize-html (user :name))
-					#td (cgi :sanitize-html (user :email) default: "")
-					#td (cgi :sanitize-html (user :phone_number) default: "")
-					printf "<td>%0</td>" (cgi :sanitize-html (user :member_id))
-					printf "<td class='tooltip' data-text='%0'>%0</td>" (cgi :sanitize-html (user :name))
-					
-					if (user :email) =/= null do
-						printf "<td class='tooltip' data-text='%0'>%0</td>" (cgi :sanitize-html (user :email))
-					end else do
-						print-exactly "<td>...</td>"
-					end
-					
-					if (user :phone_number) =/= null do
-						printf "<td class='tooltip' data-text='%0'>%0</td>" (cgi :sanitize-html (user :phone_number))
-					end else do
-						print-exactly "<td>...</td>"
+					th "Id"
+					th "Name"
+					th "Email"
+					th "Phone"
+				end
+				
+				for-in users with user do
+					tr do
+						#td (cgi :sanitize-html (user :member_id))
+						#td (cgi :sanitize-html (user :name))
+						#td (cgi :sanitize-html (user :email) default: "")
+						#td (cgi :sanitize-html (user :phone_number) default: "")
+						printf "<td>%0</td>" (cgi :sanitize-html (user :member_id))
+						printf "<td class='tooltip' data-text='%0'>%0</td>" (cgi :sanitize-html (user :name))
+						
+						if (user :email) =/= null do
+							printf "<td class='tooltip' data-text='%0'>%0</td>" (cgi :sanitize-html (user :email))
+						end else do
+							print-exactly "<td>...</td>"
+						end
+						
+						if (user :phone_number) =/= null do
+							printf "<td class='tooltip' data-text='%0'>%0</td>" (cgi :sanitize-html (user :phone_number))
+						end else do
+							print-exactly "<td>...</td>"
+						end
 					end
 				end
 			end
+		end
+	end
+end
+
+let req-type = assert (getenv "REQUEST_METHOD")
+let cookies = cgi :parse-cookies (getenv "HTTP_COOKIE")
+
+if req-type == "GET" do
+	let admin-token = cookies :admin-login
+	let user-token = cookies :user-login
+	
+	let db = sql :open (db-interface :db-path)
+	let users-list = db "SELECT member_id, name, email, phone_number FROM users"
+	let user = db-interface :auth-user db user-token
+	let is-admin = db-interface :auth-admin db admin-token
+	sql :close db
+	
+	if (user =/= null) or? (is-admin) do
+		handle-get users-list
+	end else do
+		cgi :headers do
+			redirect "/auth-error.html"
 		end
 	end
 end
